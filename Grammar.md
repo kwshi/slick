@@ -19,6 +19,7 @@
   ::= <record-expr>
     | <function>
     | <function-app>
+    | LPAREN <expr> RPAREN
 
 <record-expr> ::= LBRACE <record-expr-values> RBRACE
 
