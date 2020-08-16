@@ -1,0 +1,101 @@
+\documentclass{article}
+
+\title{Slick Lang}
+\date{}
+\author{}
+
+% \prooftree and related commands
+\usepackage{ebproof}
+% most symbols
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+% nice looking greek symbols
+\usepackage{upgreek}
+% \RHD
+\usepackage[nointegrals]{wasysym}
+\usepackage{xcolor}
+
+\newcommand{\ignore}[1]{}
+\newcommand{\todo}[1]{\colorbox{red}{#1}}
+\newcommand{\consider}[1]{\colorbox{red}{!!!} #1 \colorbox{red}{!!!}}
+
+\newcommand{\bnfvar}[1]{\langle \texttt{#1} \rangle}
+\newcommand{\define}{::=}
+
+\newcommand{\arrow}{\to}
+\newcommand{\rcd}[1]{\{#1\}}
+\newcommand{\emptyrow}{\cdot}
+
+\newcommand{\spc}{\qquad}
+\newcommand{\ctx}{\Upgamma}
+\newcommand{\derives}[3]{#1 \vdash #2 : #3}
+
+\newcommand{\deduct}[3][]
+{
+  \begin{prooftree}
+    \hypo{#2}
+    \infer1[\text{#1}]{#3}
+  \end{prooftree}
+}
+
+\begin{document}
+
+\maketitle
+
+\section{Grammar}
+
+\subsection{Expressions}
+
+Note that the empty record \(\{\}\) is used in place of unit.
+
+\[
+\begin{array}{lllrl}
+  \bnfvar {expr} & \define & \bnfvar {record-expr} & \\
+  & | & \bnfvar {function} & \\
+  & | & \bnfvar {function-app} & \\
+  & | & ( \bnfvar {expr} ) & \\
+  \bnfvar {record-expr} & \define & \{ \bnfvar {record-expr-values} \} & \\
+  \bnfvar {record-expr-values} & \define & \upepsilon & \text{empty} \\
+  & | & \bnfvar {record-expr-value} & \text{singleton} \\
+  & | & \bnfvar {record-expr-value} , \bnfvar {record-expr-values} & \\
+  \bnfvar {record-expr-value} & \define & identifier = \bnfvar {expr} & \\
+  \bnfvar {function} & \define & \bnfvar {record} \arrow \bnfvar {expr} & \\
+  \bnfvar {function-app} & \define & \bnfvar {expr} \bnfvar {expr} & 
+\end{array}
+\]
+
+\section{Types}
+
+\subsection{Grammar}
+
+\[
+  \begin{array}{lllrl}
+    \ell & \define & \text{label} & \\
+    e & \define & \text{expression} & \\
+    \ctx & \define & \cdot & \\
+    & | & v = t, \ctx & \\
+    \tau, \sigma & \define & \rcd \uprho &  \\
+    & | & \tau \arrow \sigma & \\
+    t, s & \define & \forall \upalpha. t & \\
+    & | & \tau & \\
+    \rho & \define & \emptyrow & \\
+    & | & \ell : \tau, \rho &
+  \end{array}
+\]
+
+\subsection{Typing Rules}
+
+\[
+  \deduct
+  {}
+  {\derives \ctx {\rcd{}} \emptyrow}
+  {\text{(Empty record)}}
+  \spc
+  \deduct
+  {\derives \ctx {rcd} {\rcd \rho}}
+  {\derives \ctx {\rcd{\ell=e,rcd}} {\rcd{\ell : \tau, \rho}}}
+  {\text{(Record)}}
+\]
+
+\end{document}
