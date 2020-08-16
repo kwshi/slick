@@ -1,0 +1,7 @@
+(library
+(name slick)
+(public_name slick)
+(libraries containers))
+
+(ocamllex lexer)
+(menhir (modules parser))
