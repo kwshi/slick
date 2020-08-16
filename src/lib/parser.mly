@@ -48,24 +48,6 @@ rev_comma_sequence(item):
 comma_sequence(item):
   | rev_items = rev_comma_sequence(item) { List.rev rev_items }
 
-(*
-record_expr:
-  | LBRACE; l = record_expr_entries; RBRACE { l }
-
-record_type:
-  | LBRACE; l = record_type_entries; RBRACE { l }
-
-record_type_entries:
-  | { [] }
-  | i = record_type_entry { [i] }
-  | items = record_type; COMMA; i = record_type_entry { i :: items }
-
-record_expr_entries:
-  | { [] }
-  | i = record_expr_entry { [i] }
-  | items = record_expr; COMMA; i = record_expr_entry { i :: items }
-
-*)
 brace_list(entry):
   | LBRACE; vs = comma_sequence(entry); RBRACE { vs }
 
