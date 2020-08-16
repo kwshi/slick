@@ -30,3 +30,6 @@ _opam/
 
 # Generated files
 *.pdf
+
+# Editor files
+auto
