@@ -1,6 +1,7 @@
 (library
 (name slick)
 (public_name slick)
+(preprocess (pps ppx_deriving.show))
 (libraries containers))
 
 (ocamllex lexer)

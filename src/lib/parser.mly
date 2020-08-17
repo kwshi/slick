@@ -1,5 +1,8 @@
 %{
 open Containers
+
+module Expr = Ast.UntypedExpr
+
 %}
 
 %token <string> LOWER_IDENT
@@ -16,7 +19,7 @@ open Containers
 %token COMMA
 %token EOF
 
-%start <Ast.expr> prog
+%start <Ast.UntypedExpr.t> prog
 
 %%
 
@@ -31,14 +34,14 @@ function_type:
   | r = record_type; ARROW; t = type_ { (r, t) }
 
 expr:
-  | f = function_expr { Ast.Function f }
-  | a = function_app { Ast.Application a }
+  | f = function_expr { f }
+  | a = function_app { a }
+  | s = UPPER_IDENT; r = record_expr { Expr.make_variant s r }
   | e = atomic_expr { e }
 
 atomic_expr:
   | LPAREN; e = expr; RPAREN { e }
-  | r = record_expr { Ast.Record r }
-  | s = UPPER_IDENT; r = record_expr { Ast.Variant (s, r) }
+  | r = record_expr { Expr.make_record r }
 
 rev_comma_sequence(item):
   | { [] }
@@ -64,8 +67,8 @@ record_expr_entry:
   | k = LOWER_IDENT; EQUALS; v = expr { (k, v) }
 
 function_expr:
-  | BACKSLASH; r = record_type; ARROW; e = expr { (r, e) }
+  | BACKSLASH; r = record_type; ARROW; e = expr { Expr.make_function r e }
 
 function_app:
-  | f = atomic_expr; e = atomic_expr { (f, e) }
+  | f = atomic_expr; r = record_expr { Expr.make_application f r }
 
