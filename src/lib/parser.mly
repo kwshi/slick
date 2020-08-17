@@ -42,6 +42,7 @@ expr:
 atomic_expr:
   | LPAREN; e = expr; RPAREN { e }
   | r = record_expr { Expr.make_record r }
+  | v = LOWER_IDENT { Expr.make_var v}
 
 rev_comma_sequence(item):
   | { [] }
@@ -70,5 +71,6 @@ function_expr:
   | BACKSLASH; r = record_type; ARROW; e = expr { Expr.make_function r e }
 
 function_app:
-  | f = atomic_expr; r = record_expr { Expr.make_application f r }
+  (* Should this be r = expr? *)
+  | f = atomic_expr; r = atomic_expr { Expr.make_application f r }
 

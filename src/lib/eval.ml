@@ -43,13 +43,14 @@ let rec evaluate ctx annotated =
   | Application (f, e) ->
     (match evaluate ctx f with
      | Value_function fn ->
-      {lookup_table = e
-      |> List.map (Pair.map2 (evaluate ctx))
-      |> LookupTable.of_list
+      {lookup_table = match evaluate ctx e with
+       | Value_record r -> r
+        |> LookupTable.of_list
+       | _ -> failwith "not a record"
       }
       |> fn
 
-     | _ -> failwith "not a fn"
+     | _ -> failwith "not a function"
     )
 
   | Record r ->

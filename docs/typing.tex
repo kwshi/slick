@@ -72,6 +72,7 @@ Note that the empty record \(\{\}\) is used in place of unit.
 \[
   \begin{array}{lllrl}
     \ell & \define & \text{label} & \\
+    v & \define & \text{variable} & \\
     e & \define & \text{expression} & \\
     \ctx & \define & \cdot & \\
     & | & v = t, \ctx & \\
@@ -86,6 +87,28 @@ Note that the empty record \(\{\}\) is used in place of unit.
 
 \subsection{Typing Rules}
 
+\subsubsection{Functions}
+\[
+  \deduct
+  {\ctx, v = t, \ctx' \spc v \notin \ctx}
+  {\derives {\ctx, v = t, \ctx'} v t}
+  {\text{(Var)}}
+  \spc
+  \deduct
+  {\derives {v_1=t_1,v_2=t_2,\dots,\ctx} e t}
+  {\derives \ctx {\backslash \rcd{v_1: t_1, v_2 : t_2, \dots} \arrow e} { \rcd{v_1: t_1, v_2 : t_2, \dots}
+      \arrow t}}
+  {\text{(Functions)}}
+\]
+\[
+  \deduct
+  {\derives \ctx {e_1} {\rcd{v_1=t_1,v_2=t_2,\dots} \arrow t} \spc \derives \ctx
+    {e_2} {\rcd{v_1=t_1,v_2=t_2,\dots}}}
+  {\derives \ctx {e_1 e_2} t}
+  {\text{App}}
+\]
+
+\subsubsection{Records}
 \[
   \deduct
   {}
