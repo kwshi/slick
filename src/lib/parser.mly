@@ -42,7 +42,7 @@ expr:
 atomic_expr:
   | LPAREN; e = expr; RPAREN { e }
   | r = record_expr { Expr.make_record r }
-  | v = LOWER_IDENT { Expr.make_var v}
+  | v = LOWER_IDENT { Expr.make_var v }
 
 rev_comma_sequence(item):
   | { [] }
