@@ -6,6 +6,7 @@ type context_var =
   | Context_var of Ast.var_name
   | Context_uvar of int
 
+(*
 type context =
   { next_uvar : int (* TODO convert to context from complete and easy *)
   ; lt : Ast.type_ LookupTable.t
@@ -73,3 +74,5 @@ let rec infer ctx annotated =
         let e1, e2 = a in
         let e1_tp, ctx_1 = infer ctx e1 in
         a )
+
+   *)

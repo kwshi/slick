@@ -26,7 +26,7 @@ let rec pp_value ppf value =
 
 
 let rec evaluate ctx annotated =
-  let open Ast in
+  let open Ast.Expr in
   match annotated.expr with
   | Function (_, e) ->
       Value_function
@@ -39,20 +39,19 @@ let rec evaluate ctx annotated =
                   fctx.lookup_table
             }
             e)
-  | Application (f, e) ->
+  | Application (f, r) ->
     ( match evaluate ctx f with
     | Value_function fn ->
-        { lookup_table =
-            ( match evaluate ctx e with
-            | Value_record r ->
-                r |> LookupTable.of_list
-            | _ ->
-                failwith "not a record" )
+        { lookup_table = evaluate_record ctx r |> LookupTable.of_list
         }
         |> fn
     | _ ->
         failwith "not a function" )
   | Record r ->
-      Value_record (List.map (Pair.map2 (evaluate ctx)) r)
+      Value_record (evaluate_record ctx r)
   | Variant (s, r) ->
-      Value_variant (s, List.map (Pair.map2 (evaluate ctx)) r)
+      Value_variant (s, evaluate_record ctx r)
+  | Var s ->
+    LookupTable.find s ctx.lookup_table
+and evaluate_record ctx =
+  List.map (Pair.map2 (evaluate ctx))
