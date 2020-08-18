@@ -1,8 +1,11 @@
 (library
-(name slick)
-(public_name slick)
-(preprocess (pps ppx_deriving.show))
-(libraries containers))
+ (name slick)
+ (public_name slick)
+ (preprocess
+  (pps ppx_deriving.show ppx_deriving.eq ppx_deriving.ord))
+ (libraries containers))
 
 (ocamllex lexer)
-(menhir (modules parser))
+
+(menhir
+ (modules parser))
