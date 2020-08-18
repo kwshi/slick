@@ -29,7 +29,66 @@
 
 \newcommand{\spc}{\qquad}
 \newcommand{\ctx}{\Upgamma}
+\newcommand{\ctxalt}{\Updelta}
+\newcommand{\ctxaltt}{\Uptheta}
+\newcommand{\declCtx}{\Uppsi}
 \newcommand{\derives}[3]{#1 \vdash #2 : #3}
+\newcommand{\lbl}{\ell}
+\newcommand{\expr}{e}
+\newcommand{\var}{v}
+\newcommand{\row}{r}
+\newcommand{\rowm}{\uprho}
+\newcommand{\tp}{A}
+\newcommand{\tpalt}{B}
+\newcommand{\tpaltt}{C}
+\newcommand{\tpm}{\uptau}
+\newcommand{\tpmalt}{\upsigma}
+\newcommand{\marker}[1]{\RHD_{#1}}
+\newcommand{\ev}{\hat}
+\newcommand{\evar}[1][]{\ev \upalpha_{#1}}
+\newcommand{\evaralt}{\ev \upbeta}
+\newcommand{\tvar}{\alpha}
+\newcommand{\ctxinout}[3]{#1 \vdash #2 \dashv #3}
+\newcommand{\synth}[4]{\ctxinout {#1} {#2 \Rightarrow #3} {#4}}
+\renewcommand{\check}[4]{\ctxinout {#1} {#2 \Leftarrow #3} {#4}}
+\newcommand{\subsume}{<:}
+\newcommand{\subsumes}[4]{\ctxinout {#1} {#2 \subsume #3} {#4}}
+\newcommand{\synthesizes}{\Rightarrow \!\!\! \Rightarrow}
+\newcommand{\presynth}[6]{\ctxinout {#1} {#2 #3 #4 \synthesizes #5} {#6}}
+\newcommand{\app}{\bullet}
+\newcommand{\appsynth}[5]{\presynth {#1} {#2} \app {#3} {#4} {#5}}
+
+\newcommand{\B}{\mathcal{B}}
+\newcommand{\C}{\mathcal{C}}
+\newcommand{\D}{\mathcal{D}}
+\newcommand{\rowall}{\rotatebox[origin=c]{180}{\(\mathsf{R}\)}}
+\newcommand{\rowvar}{\alpha_\rho}
+\newcommand{\bottom}{\perp}
+\newcommand{\prjSymbol}{.}
+\newcommand{\prj}{\,\prjSymbol\,}
+\newcommand{\instLSymbol}{\;\substack{<\\:=}\;}
+\newcommand{\instRSymbol}{\;\substack{<\\=:}\;}
+\newcommand{\apply}[1]{\left[#1\right]}
+
+\newcommand{\rnil}{\{\}}
+\newcommand{\rcons}[2]{\{#1 \,|\, #2\}}
+
+\newcommand{\wf}[2]{#1 \vdash #2}
+
+\newcommand{\subtype}{\le}
+\newcommand{\subtypes}[3]{#1 \vdash #2 \le #3}
+
+\newcommand{\declSynth}[3]{#1 \vdash #2 \Rightarrow #3}
+\newcommand{\declCheck}[3]{#1 \vdash #2 \Leftarrow #3}
+\newcommand{\declApSynth}[4]{#1 \vdash #2 \app #3 \synthesizes #4}
+\newcommand{\declLookup}[4]{#1 \vdash #2 \# #3 \longrightarrow #4}
+
+\newcommand{\instL}[4]{#1 \vdash #2 \instLSymbol #3 \dashv #4}
+\newcommand{\instR}[4]{#1 \vdash #2 \instRSymbol #3 \dashv #4}
+
+\newcommand{\lookup}[5]{#1 \vdash #2 \# #3 \longrightarrow #4 \dashv #5}
+
+\newcommand{\extends}{\longrightarrow}
 
 \newcommand{\deduct}[3][]
 {
@@ -43,82 +102,480 @@
 
 \maketitle
 
-\section{Grammar}
+% \section{Grammar}
+% 
+% \subsection{Expressions}
+% 
+% Note that the empty record \(\{\}\) is used in place of unit.
+% 
+% \[
+% \begin{array}{lllrl}
+%   \bnfvar {expr} & \define & \bnfvar {record-expr} & \\
+%   & | & \bnfvar {function} & \\
+%   & | & \bnfvar {function-app} & \\
+%   & | & ( \bnfvar {expr} ) & \\
+%   \bnfvar {record-expr} & \define & \{ \bnfvar {record-expr-values} \} & \\
+%   \bnfvar {record-expr-values} & \define & \upepsilon & \text{empty} \\
+%   & | & \bnfvar {record-expr-value} & \text{singleton} \\
+%   & | & \bnfvar {record-expr-value} , \bnfvar {record-expr-values} & \\
+%   \bnfvar {record-expr-value} & \define & identifier = \bnfvar {expr} & \\
+%   \bnfvar {function} & \define & \bnfvar {record} \arrow \bnfvar {expr} & \\
+%   \bnfvar {function-app} & \define & \bnfvar {expr} \bnfvar {expr} & 
+% \end{array}
+% \]
 
-\subsection{Expressions}
+\section{Declarative Typing}
 
-Note that the empty record \(\{\}\) is used in place of unit.
+\subsection{Terms}
 
 \[
-\begin{array}{lllrl}
-  \bnfvar {expr} & \define & \bnfvar {record-expr} & \\
-  & | & \bnfvar {function} & \\
-  & | & \bnfvar {function-app} & \\
-  & | & ( \bnfvar {expr} ) & \\
-  \bnfvar {record-expr} & \define & \{ \bnfvar {record-expr-values} \} & \\
-  \bnfvar {record-expr-values} & \define & \upepsilon & \text{empty} \\
-  & | & \bnfvar {record-expr-value} & \text{singleton} \\
-  & | & \bnfvar {record-expr-value} , \bnfvar {record-expr-values} & \\
-  \bnfvar {record-expr-value} & \define & identifier = \bnfvar {expr} & \\
-  \bnfvar {function} & \define & \bnfvar {record} \arrow \bnfvar {expr} & \\
-  \bnfvar {function-app} & \define & \bnfvar {expr} \bnfvar {expr} & 
-\end{array}
-\]
-
-\section{Types}
-
-\subsection{Grammar}
-
-\[
-  \begin{array}{lllrl}
-    \ell & \define & \text{label} & \\
-    v & \define & \text{variable} & \\
-    e & \define & \text{expression} & \\
-    \ctx & \define & \cdot & \\
-    & | & v = t, \ctx & \\
-    \tau, \sigma & \define & \rcd \uprho &  \\
-    & | & \tau \arrow \sigma & \\
-    t, s & \define & \forall \upalpha. t & \\
-    & | & \tau & \\
-    \rho & \define & \emptyrow & \\
-    & | & \ell : \tau, \rho &
+  \begin{array}{llll}
+    \text{labels} & \lbl & & \\
+    \text{variables} & \var & & \\
+    \text{expressions} & \expr & \define & \\
+    & \text{records} & | & \rcd{\lbl_1=\expr_1, \lbl_2=\expr_2,\dots} \\
+    & \text{functions} & | & \backslash \rcd{\lbl_1:\tp_1, \lbl_2:\tp_2,\dots}
+                           \arrow \expr \\
+    & \text{applications} & | & \expr_1 \expr_2 \\
+    & \text{annotations} & | & \expr : \tp
   \end{array}
 \]
 
-\subsection{Typing Rules}
+\subsection{Types and type machinery}
+
+\[
+  \begin{array}{lllrl}
+    \text{labels} & \lbl & & \\
+    \text{contexts} & \declCtx & \define & \cdot \\
+    & & | & v = \tp, \declCtx \\
+    \text{monomorphic types} & \tpm, \tpmalt & \define & \rcd \uprho  \\
+    & & | & \tpm \arrow \tpmalt \\
+    \text{types} & \tp, \tpalt & \define & \forall \tvar. \tp \\
+    & & | & \tpm \\
+    \text{rows} & \row & \define & \emptyrow  \\
+    & & | & \lbl : \tp, \row \\
+    \text{monomorphic rows} & \rowm & \define & \emptyrow  \\
+    & & | & \lbl : \tpm, \rowm  \\
+    \text{records} & \{\row\} & &
+  \end{array}
+\]
+
+\subsection{Typing rules}
 
 \subsubsection{Functions}
 \[
   \deduct
-  {\ctx, v = t, \ctx' \spc v \notin \ctx}
-  {\derives {\ctx, v = t, \ctx'} v t}
-  {\text{(Var)}}
+  [(Var)]
+  {\declCtx, \var = \tp, \declCtx' \spc \var \notin \declCtx}
+  {\derives {\declCtx, \var = \tp, \declCtx'} \var \tp}
   \spc
   \deduct
-  {\derives {v_1=t_1,v_2=t_2,\dots,\ctx} e t}
-  {\derives \ctx {\backslash \rcd{v_1: t_1, v_2 : t_2, \dots} \arrow e} { \rcd{v_1: t_1, v_2 : t_2, \dots}
-      \arrow t}}
-  {\text{(Functions)}}
+  [(Function)]
+  {\derives {\var_1=\tp_1,\var_2=\tp_2,\dots,\declCtx} \expr \tp}
+  {\derives \declCtx {\backslash \rcd{\var_1: \tp_1, \var_2 : \tp_2, \dots} \arrow \expr} { \rcd{\var_1: \tp_1, \var_2 : \tp_2, \dots}
+      \arrow \tp}}
 \]
 \[
   \deduct
-  {\derives \ctx {e_1} {\rcd{v_1=t_1,v_2=t_2,\dots} \arrow t} \spc \derives \ctx
-    {e_2} {\rcd{v_1=t_1,v_2=t_2,\dots}}}
-  {\derives \ctx {e_1 e_2} t}
-  {\text{App}}
+  [(App)]
+  {\derives \declCtx {\expr_1} {\rcd{\var_1=\tp_1,\var_2=\tp_2,\dots} \arrow \tp} \spc \derives \declCtx
+    {\expr_2} {\rcd{\var_1=\tp_1,\var_2=\tp_2,\dots}}}
+  {\derives \declCtx {\expr_1 \expr_2} \tp}
 \]
 
 \subsubsection{Records}
 \[
   \deduct
+  [(Empty record)]
   {}
-  {\derives \ctx {\rcd{}} \emptyrow}
-  {\text{(Empty record)}}
+  {\derives \declCtx {\rcd{}} \emptyrow}
   \spc
   \deduct
-  {\derives \ctx {rcd} {\rcd \rho}}
-  {\derives \ctx {\rcd{\ell=e,rcd}} {\rcd{\ell : \tau, \rho}}}
-  {\text{(Record)}}
+  [(Record)]
+  {\derives \declCtx {\rcd {rcd}} {\rcd \row}}
+  {\derives \declCtx {\rcd{\lbl=e,rcd}} {\rcd{\lbl : \tp, \row}}}
 \]
+
+\section{Algorithmic typing}
+
+Drawing heavy inspiration from \textit{Complete and Easy Bidirectional Typing
+  for Higher-Rank Polymorphism} by Dunfield and Krishnaswami.
+
+\subsection{Terms}
+
+Same as those from the Declarative typing section.
+
+\subsection{Types}
+
+\[
+  \begin{array}{lllrl}
+    \text{labels} & \lbl & & \\
+    \text{evars} & \evar & & \\
+    \text{tvars} & \tvar & & \\
+    \text{contexts} & \ctx, \ctxalt, \ctxaltt & \define & \cdot \\
+    & \text{vars} & | & \var : \tp, \ctx \\
+    & \text{solved evars} & | & \evar : \tp, \ctx \\
+    & \text{evars} & | & \evar, \ctx \\
+    & \text{type vars} & | & \tvar, \ctx \\
+    & \text{markers} & | & \marker \evar, \ctx \\
+    \text{monomorphic types} & \uptau, \upsigma & \define & \rcd \uprho  \\
+    & & | & \uptau \arrow \upsigma \\
+    \text{types} & \tp, \tpalt, \tpaltt & \define & \forall \tvar . \tp \\
+    & & | & \uptau \\
+    \text{rows} & \row & \define & \emptyrow  \\
+    & & | & \lbl : t, \row \\
+    \text{records} & \{\row\} & &
+  \end{array}
+\]
+
+\subsection{Typing rules}
+We define algorithmic typing with the following judgments:
+\[
+\check{\ctx}{e}{A}{\ctxalt}
+\spc
+\synth{\ctx}{e}{A}{\ctxalt}
+\]
+which respectively represent type checking (inputs: $\ctx$, $\expr$, $A$; output: $\ctxalt$) and type synthesis (inputs: $\ctx$, $\expr$; outputs: $A$, $\Delta$).
+
+We also define a binary algorithmic judgement:
+
+\[
+\presynth{\ctx}{X}{\square}{Y}{Z}{\ctxalt}
+\]
+
+which represents a binary judgement \(\square\) under the context \(\ctx\) on
+values \(X\) and \(Y\) that synthesizes \(Z\) with output context \(\ctxalt\).
+For example, the syntax that Dunfield and Krishnaswami use for function
+application synthesis judgements would be
+
+\[
+\appsynth \ctx A e C \ctxalt
+\]
+
+which means that under context \(\ctx\), \(A\) applied to the term \(e\)
+synthesizes output type \(C\) and context \(\ctxalt\).
+
+\[
+  \deduct[(Var)]
+  {
+    (x : A) \in \ctx
+  }
+  { \synth{\ctx}{x}{A}{\ctx} }
+  \spc
+  \deduct[(Sub)]
+  {
+    \synth{\ctx}{e}{A}{\ctxaltt} \spc
+    \subsumes{\ctxaltt}{\apply\ctxaltt A}{\apply\ctxaltt B}{\ctxalt}
+  }
+  { \check{\ctx}{e}{B}{\ctxalt} }
+\]
+
+\[
+  \deduct[(Annotation)]
+  { \ctx \vdash A \spc \check{\ctx}{e}{A}{\ctxalt} }
+  { \synth{\ctx}{(e : A)}{A}{\ctxalt} }
+  \spc
+  \deduct[(\(\forall\) I)]
+  { \check{\ctx, \alpha}{e}{A}{\ctxalt, \alpha, \ctxaltt} }
+  { \check{\ctx}{e}{\forall \alpha. A}{\ctxalt} }
+\]
+
+\[
+  \deduct[(\(\to\)I)]
+  { \subsumes \ctx {\rcd{v_1:\tp_1,\dots}} {\rcd{v_1:\tpalt_1,\dots}} \ctxalt \spc \check{\ctxalt, \var_1 : \tpalt_1, \dots}{e}{\tpaltt}{\ctxaltt, \var_1 : \tpalt_1,
+      \dots,  \ctxaltt'} }
+  { \check{\ctx}{\backslash \rcd{\var_1:\tp_1,\dots} \arrow e}{ \rcd{\var_1:\tpalt_1,\dots} \arrow \tpaltt}{\ctxaltt} }
+\]
+
+\[
+  \deduct[(\(\to\)I\(\implies\))]
+  { \check{\ctx, \evar, \var_1 : \tp_1, \dots}{e}{\evar}{\ctxalt, \var_1 :
+      \tp_1, \dots,  \ctxaltt} }
+  { \synth{\ctx}{\backslash \rcd{\var_1:\tp_1,\dots} \arrow e}{{\rcd{\var_1:\tp_1,\dots}} \arrow \evar}{\ctxalt} }
+\]
+
+\[
+  \deduct[(\(\to\)E)]
+  { \synth{\ctx}{e_1}{A}{\ctxaltt} \spc \presynth{\ctxaltt}{\apply\ctxaltt A}{\app}{e_2}{C}{\ctxalt} }
+  { \synth{\ctx}{e_1 \ e_2}{C}{\ctxalt}  }
+  \spc
+  \deduct[(\(\forall\) App)]
+  { \presynth{\ctx, \ev\alpha}{A[\alpha := \ev\alpha]}{\app}{e}{C}{\ctxalt} }
+  { \presynth{\ctx}{\forall \alpha. A}{\app}{e}{C}{\ctxalt} }
+\]
+
+\[
+  \deduct[(\(\to\)App)]
+    { \check{\ctx}{e}{A}{\ctxalt} }
+    { \presynth{\ctx}{A \to C}{\app}{e}{C}{\ctxalt} }
+\]
+
+\[
+  \deduct[(\(\ev\alpha\)App)]
+    {
+      \check{\ctx[\ev{\alpha_2}, \ev{\alpha_1}, \ev \alpha = \ev{\alpha_1} \to
+        \ev{\alpha_2}]}{e}{\ev{\alpha_1}}{\ctxalt}
+    }
+    { \presynth{\ctx[\ev\alpha]}{\ev\alpha}{\app}{e}{\ev\alpha_2}{\ctxalt} }
+\]
+
+
+\[
+% \deduct[(\{\}I)]{}{\check{\ctx}{\{\}}{\{\}}{\ctx}}
+% \spc
+\deduct[(\{\}I\(\implies\))]{}{\synth{\ctx}{\{\}}{\{\}}{\ctx}}
+\]
+
+\[
+  % \deduct[(RcdI)]
+  % { \check{\ctx}{e}{A}{\ctxaltt} \spc \check{\ctxaltt}{\apply\ctxaltt \rcd {rcd}}{\apply\ctxaltt\row}{\ctxalt} }
+  % { \check{\ctx}{\{\lbl : e , rcd \}}{\{\lbl : A, \row\}}{\ctxalt} }
+  % \spc
+  \deduct[(RcdI\(\implies\))]
+  { \synth{\ctx}{e}{A}{\ctxaltt} \spc \synth{\ctxaltt}{\apply\ctxaltt \rcd
+        {rcd}}{\apply\ctxaltt \row}{\ctxalt} }
+  { \synth{\ctx}{\{\lbl : e , rcd \}}{\{\lbl : A, \row\}}{\ctxalt} }
+\]
+
+% \[
+%   \deduct[(Prj)]
+%   { \synth{\Gamma}{e}{A}{\Theta} \spc
+%     \presynth{\Theta}{\apply\Theta A}{\prj}{\lbl}{C}{\Delta}
+%   }
+%   { \synth{\Gamma}{e\#\lbl}{C}{\Delta} }
+%   \spc
+%   \deduct[(\(\forall\) Prj)]
+%   { \presynth{\Gamma, \ev\alpha}{A[\alpha := \ev\alpha]}{\prj}{\lbl}{C}{\Delta} }
+%   { \presynth{\Gamma}{\forall \alpha. A}{\prj}{\lbl}{C}{\Delta} }
+% \]
+
+% \[
+%   \deduct[(RcdPrjR)]
+%     { \lookup{\Gamma}{R}{l}{C}{\Delta} }
+%     { \presynth{\Gamma}{R}{\prj}{\lbl}{C}{\Delta} }
+% \]
+
+% \noindent
+% We define record lookup $\lookup{\Gamma}{\rho}{\lbl}{A}{\Delta}$ as follows (inputs: $\Gamma$, $\rho$, $l$; outputs: $A$, $\Delta$):
+% \[
+% \deduct[(lookupYes)]{}{\lookup{\Gamma}{\{\lbl : A, R\}}{\lbl}{A}{\Gamma}}
+% \spc
+% \deduct[(lookupNo)]
+%   {\lbl \neq \lbl' \spc \lookup{\Gamma}{\{R\}}{\lbl}{A}{\Delta}}
+%   {\lookup{\Gamma}{\{\lbl' : A', R\}}{\lbl}{A}{\Delta}}
+% \]
+
+% \[
+% \deduct[(Lookup \(\ev\alpha\))]
+%   { }
+%   { \lookup
+%       {\Gamma[\ev\alpha]}
+%       {\ev\alpha}
+%       {\lbl}
+%       {\ev\alpha_0}
+%       {\Gamma[\ev\alpha_0, \ev\alpha_1, \ev\alpha = \{\lbl : \ev\alpha_0, \ev\alpha_1\}] }
+%   }
+% \]
+
+% \[
+% \deduct[(Lookup RowTail)]
+%   { }
+%   { \lookup
+%       {\Gamma[\ev\alpha]}
+%       {\{\ev\alpha\}}
+%       {\lbl}
+%       {\ev\alpha_0}
+%       {\Gamma[\ev\alpha_0, \ev\alpha_1, \ev\alpha = (\lbl : \ev\alpha_0, \ev\alpha_1)] }
+%   }
+% \]
+
+\subsection{Subsumption}
+We define the algorithmic subsumption:
+\[
+\subsumes{\Gamma}{A_0}{A_1}{\Delta}
+\]
+which represents $A_0$ subsumes $A_1$ with input context $\Gamma$ and output
+context $\Delta$. Subsumption is like subtyping, but only applies to
+quantifiers. Everything else must be strict equality (for now, this also means
+records, so you can't use \(\{\lbl_1: \texttt{Bool}, \lbl_2: \texttt{Num}\}\) in
+place of \(\{\lbl_1 : \texttt{Bool}\}\) even though you really \emph{should} be
+able to).
+\[
+  \deduct[(EVar)]{}{\subsumes{\Gamma[\ev\alpha]}{\ev\alpha}{\ev\alpha}{\Gamma[\ev\alpha]}}
+  \spc
+  \deduct[(Var)]{}{\subsumes{\Gamma[\alpha]}{\alpha}{\alpha}{\Gamma[\alpha]}}
+  % \spc
+  % \deduct[(Const)]{}{\subsumes{\Gamma}{\B}{\B}{\Gamma}}
+\]
+
+\[
+  \deduct[(\(\forall\)L)]
+  { \subsumes{\Gamma, \marker{\ev\alpha}, \ev\alpha}{A[\alpha := \ev\alpha]}{B}{\Delta, \marker{\ev\alpha}, \Theta} }
+  { \subsumes{\Gamma}{\forall \alpha. A}{B}{\Delta} }
+  \spc
+  \deduct[(\(\forall\)R)]
+  { \subsumes{\Gamma, \alpha}{A}{B}{\Delta, \alpha, \Theta} }
+  { \subsumes{\Gamma}{A}{\forall \alpha. B}{\Delta} }
+\]
+
+\[
+  \deduct[(\(\to\))]
+  { \subsumes{\Gamma}{B_1}{A_1}{\Theta} \spc \subsumes{\Theta}{\apply\Theta A_2}{\apply\Theta B_2}{\Delta} }
+  { \subsumes{\Gamma}{A_1 \to A_2}{B_1 \to B_2}{\Delta} }
+\]
+
+\[
+  \deduct[InstantiateL]
+  {\ev \alpha \notin FV(A) \spc \instL{\Gamma[\ev \alpha]}{\ev
+      \alpha}{A}{\Delta}}
+  {\subsumes{\Gamma[\ev \alpha]}{\ev \alpha}{A}{\Delta}}
+  \spc
+  \deduct[InstantiateR]
+  {\ev \alpha \notin FV(A) \spc \instR{\Gamma[\ev \alpha]}{A}{\ev
+      \alpha}{\Delta}}
+  {\subsumes{\Gamma[\ev \alpha]}{A}{\ev \alpha}{\Delta}}
+\]
+
+\[
+  \deduct[Record]{\subsumes{\Gamma}{R_0}{R_1}{\Delta}}{\subsumes{\Gamma}{\{R_0\}}{\{R_1\}}{\Delta}}
+\]
+
+For this rule, we treat the rows as sets and assume they are reordered so that
+the matching labels are at the front of the row. An algorithmic implementation
+would want to deal with the recursive and base cases by looking at the set
+intersection and difference of the rows.
+
+\[
+  \deduct[(Row)]
+  {\subsumes{\Gamma}{A}{B}{\Theta}
+    \spc
+    \subsumes{\Theta}{[\Theta] R_1}{[\Theta] R_2}{\Delta}
+  }
+  { \subsumes{\Gamma}{\lbl : A, R_1}{\lbl : B, R_2}{\Delta} }
+  \spc
+  \deduct[(Row Nil)]{}{ \subsumes{\Gamma}{\cdot}{\cdot}{\Gamma} }
+\]
+
+% \[
+%   \deduct[(RowMissingL)]
+%   {\instL{\Gamma[\evar]}{\evar}{r}{\Delta}}
+%   {\subsumes{\Gamma[\evar], \cdot}{\evar}{r}{\Delta}}
+%   \spc
+%   \deduct[(RowMissingR)]
+%   {\instR{\Gamma[\evar]}{r}{\evar}{\Delta}}
+%   {\subsumes{\Gamma[\evar], \cdot}{r}{\evar}{\Delta}}
+% \]
+
+% This rule also treats the rows as sets and assumes that there are no equal
+% labels between the two rows. Assume an analagous rule for a different order of
+% EVars (the order doesn't matter).
+% \[
+%   \deduct[(RowMissingLR)]
+%   {\subsumes{\Gamma}{\evar}{m_1 : B_1, m_2 : B_2, \dots}{\Theta} \spc
+%     \subsumes{\Theta}{\lbl_1 : \apply\Theta A_1, \lbl_2 : \apply\Theta A_2,
+%       \dots}{\evaralt}{\Delta}}
+%   {\subsumes{\Gamma[\evar][\evaralt]}{\lbl_1 : A_1, \lbl_2 : A_2, \dots, \evar}{m_1 :
+%       B_1, m_2 : B_2, \dots, \evaralt}{\Delta}}
+% \]
+
+% \[
+%   \deduct[(RowTailReach)]
+%   {}
+%   {\subsumes{\Gamma[\evar][\evaralt]}{\evar}{\evaralt}{\Gamma[\evar][\evaralt=\evar]}}
+% \]
+
+
+\subsection{Instantiation}
+
+Instantiation is a judgement that solves an EVar, either on the left or right
+side of the judgement. It is important to recurisvely assign ``helper'' EVars to
+match the shape of whatever the EVar is being instantiated to instead of blindly
+assigning it, as there may be EVars inside of the type it is being assigned to.
+
+The EVar is instantiated so that it subsumes or is subsumed by the type,
+depending on the type of instantiation (left or right, respectively).
+
+\consider{Need an instantiation for rows that is like InstRcd}
+
+\subsubsection{Left Instantiation}
+
+\[
+  \deduct[InstLSolve]
+  {\Gamma \vdash \B}
+  {\instL{\Gamma[\ev\alpha]}{\ev \alpha}{\B}{\Gamma[\ev\alpha = \B]}}
+  \spc
+  \deduct[InstLReach]
+  {}
+  {\instL{\Gamma[\ev\alpha][\ev\beta]}{\ev \alpha}{\ev
+      \beta}{\Gamma[\ev\alpha][\ev\beta = \ev\alpha]}}
+\]
+
+\[
+  \deduct[InstLArr] {\instR{\Gamma[\evar[2], \evar[1], \evar = \evar[1] \to
+      \evar[2]]}{A_1}{\evar[1]}{\Theta} \spc \instL{\Theta}{\evar[2]}{\apply \Theta
+      A_2}{\Delta} } {\instL{\Gamma[\evar]}{\evar}{A_1 \to A_2}{\Delta}}
+\]
+
+\[
+  \deduct[InstLRcd]
+  {
+    \begin{array}{l}
+     \instL{\Gamma_0[(\evar[k+1]), \evar[k], \dots, \evar[1], \evar=\{\lbl_1 : \evar[1],
+      \lbl_2 : \evar[2], \dots, \lbl_k : \evar[k], (\evar[k+1])\}]}{\evar[1]}{A_1}{\Gamma_1} \\
+    \instL{\Gamma_1}{\evar[2]}{\apply{\Gamma_1} A_2}{\Gamma_2} \spc \cdots \spc
+     (\instL{\Gamma_k}{\evar[k+1]}{\apply{\Gamma_k}\evaralt}{\Delta})
+  \end{array}
+  }
+  {\instL{\Gamma_0[\evar]}{\evar}{\{\lbl_1:A_1, \lbl_2 : A_2, \dots, \lbl_{k-1} : A_{k-1}, (\evaralt)\}}{\Delta}}
+\]
+In the above rule, the parentheticals only come into play if there is a row tail
+in the record. If there isn't, assume that \(\Delta = \Gamma_k\).
+
+\[
+  \deduct[InstLAllR]
+  { \instL{\Gamma[\evar], \beta}{\evar}{B}{\Delta, \beta, \Delta'} }
+  { \instL{\Gamma[\evar]}{\evar}{\forall \beta. B}{\Delta} }
+\]
+
+\subsubsection{Right Instantiation}
+
+\[
+  \deduct[InstRSolve]
+  {\Gamma \vdash \B}
+  {\instR{\Gamma[\ev\alpha]}{\B}{\ev \alpha}{\Gamma[\ev\alpha = \B]}}
+  \spc
+  \deduct[InstRReach]
+  {}
+  {\instR{\Gamma[\ev\alpha][\ev\beta]}{\ev
+      \beta}{\evar}{\Gamma[\ev\alpha][\ev\beta = \ev\alpha]}}
+\]
+
+\[
+  \deduct[InstRArr] {\instL{\Gamma[\evar[2], \evar[1], \evar = \evar[1] \to
+      \evar[2]]}{\evar[1]}{A_1}{\Theta} \spc \instR{\Theta}{\apply \Theta
+      A_2}{\evar[2]}{\Delta} } {\instR{\Gamma[\evar]}{A_1 \to A_2}{\evar}{\Delta}}
+\]
+
+\[
+  \deduct[InstRRcd]
+  {
+    \begin{array}{l}
+     \instR{\Gamma_0[(\evar[k+1]), \evar[k], \dots, \evar[1], \evar=\{\lbl_1 : \evar[1],
+      \lbl_2 : \evar[2], \dots, \lbl_k : \evar[k], (\evar[k+1])\}]}{A_1}{\evar[1]}{\Gamma_1} \\
+    \instR{\Gamma_1}{\apply{\Gamma_2} A_2}{\evar[2]}{\Gamma_3} \spc \cdots \spc
+     (\instR{\Gamma_k}{\evaralt}{\evar[k+1]}{\Delta})
+  \end{array}
+  }
+  {\instR{\Gamma_0[\evar]}{\{\lbl_1:A_1, \lbl_2 : A_2, \dots, \lbl_{k-1} : A_{k-1}, (\evaralt)\}}{\evar}{\Delta}}
+\]
+In the above rule, the parentheticals only come into play if there is a row tail
+in the record. If there isn't, assume that \(\Delta = \Gamma_k\).
+
+\[
+  \deduct[InstRAllL]
+  { \subsumes{\Gamma[\evar], \marker{\ev\alpha}, \evaralt}{A[\beta := \evaralt]}{\evar}{\Delta, \marker{\evaralt}, \Delta'} }
+  { \subsumes{\Gamma[\evar]}{\forall \beta. B}{\evar}{\Delta} }
+\]
+
 
 \end{document}
