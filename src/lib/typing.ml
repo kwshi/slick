@@ -1,12 +1,13 @@
 open Containers
+open Fun
 (* module LookupTable = Map.Make (String)
  * module UVarTable = Map.Make (Int) *)
 
 type context_element =
-  | Context_var of string * Ast.type_ (* Ast.var_name instead of string? *)
+  | Context_var of string * Ast.Type.t (* Ast.var_name instead of string? *)
   | Context_evar of int
   | Context_tvar of int
-  | Context_evar_assignment of int * Ast.type_
+  | Context_evar_assignment of int * Ast.Type.t
   | Context_marker of context_element (* this should only ever be an evar, so it probably could be an int *)
 
 type context =
@@ -28,9 +29,9 @@ let fresh_var to_type to_ctx_elem ctx =
   , to_ctx_elem ctx.next_var
   , {ctx with next_var = ctx.next_var + 1})
 
-let fresh_tvar = fresh_var Ast.TVar Context_tvar
+let fresh_tvar = fresh_var (fun i -> Ast.Type.TVar i) (fun i -> Context_tvar i)
 
-let fresh_evar = fresh_var Ast.EVar Context_evar
+let fresh_evar = fresh_var (fun i -> Ast.Type.EVar i) (fun i -> Context_evar i)
 
 (* CONTEXT FUNCTIONS *)
 
@@ -42,6 +43,22 @@ let fresh_evar = fresh_var Ast.EVar Context_evar
    Errors if there is no instance of ev in the context. Optionally errors if
    there are multiple instances (this should not happen).
 *)
+let solve_evar ev tp =
+  over_context @@ fun ctx ->
+     let found, ctx' =
+       List.fold_map
+         (fun found ->
+            function
+            | Context_evar ev' when Int.(ev = ev') ->
+              if found then failwith "solve_evar multiple matches"
+              else true, Context_evar_assignment (ev, tp)
+            | ce ->
+              found, ce
+         )
+         false
+         ctx
+     in
+     if found then ctx' else failwith "solve_evar not found"
 
 (* drop_ctx_from:
    takes in a context_element ce and a context.
@@ -50,6 +67,21 @@ let fresh_evar = fresh_var Ast.EVar Context_evar
 
    Errors if ce is not in the context.
 *)
+let drop_ctx_from ce =
+  over_context @@ fun ctx ->
+  let found, ctx' = List.fold_filter_map 
+    (fun found ce' ->
+      (match found, Stdlib.(ce' = ce) (* TODO get rid of polymorphic comparison *) with
+       | true, true -> failwith "drop_ctx_from multiple matches"
+       | true, false | false, true -> true, None
+       | false, false -> false, Some ce'
+      )
+    )
+    false
+    ctx
+  in
+  if found then ctx' else failwith "drop_ctx_from not found"
+    
 
 (* apply_ctx:
    takes in a context ctx and a type tp.
@@ -64,6 +96,24 @@ let fresh_evar = fresh_var Ast.EVar Context_evar
 
    apply_ctx ctx tp = {x: evar 1 } -> {}
 *)
+let apply_ctx ctx =
+  let rec go =
+    function (* TODO don't use ast types *)
+    | Ast.Type.Record r -> Ast.Type.Record (record r)
+    | Ast.Type.Variant () -> Ast.Type.Variant ()
+    | Ast.Type.Function (r, t) -> Ast.Type.Function (record r, go t)
+    | Ast.Type.EVar ev ->
+      ctx.context
+      |> List.find_map (function
+          | Context_evar_assignment (ev', t) when Int.(ev = ev') -> Some t
+          | _ -> None
+        )
+      |> Option.get_or ~default:(Ast.Type.EVar ev)
+
+    | Ast.Type.TVar tv -> Ast.Type.TVar tv
+  and record r = List.map (Pair.map2 go) r in
+  go
+    
 
 (* insert_before_in_ctx
    takes in a context element ce, a list of context elements ces, and a context ctx.
@@ -72,7 +122,19 @@ let fresh_evar = fresh_var Ast.EVar Context_evar
 
    Errors if ce is not in the context.
 *)
-
+let insert_before_in_ctx ce ces =
+  (* TODO (maybe) use tail-recursive fold_left followed by List.rev to save
+     memory, but that's sort of an unnecessary optimization *)
+  over_context @@ List.fold_right
+    (fun ce' acc ->
+       (if Stdlib.(ce' = ce) (* TODO get rid of polymorphic comparison *)
+        then ces
+        else []
+       ) @ ce :: acc
+    )
+    []
+  
+    
 (* TYPE FUNCTIONS *)
 
 (* occurs_check:
@@ -81,12 +143,37 @@ let fresh_evar = fresh_var Ast.EVar Context_evar
    traverses the type and asserts that ev is not present in tp.
    errors if it is.
 *)
+let occurs_check ev =
+  let rec go =
+    function
+    | Ast.Type.Record r -> record r
+    | Ast.Type.Variant () -> ()
+    | Ast.Type.Function (r, t) -> record r; go t
+    | Ast.Type.EVar ev' ->
+      if Int.(ev = ev')
+      then failwith "occurs_check"
+    | Ast.Type.TVar _ -> ()
+  and record r = List.iter (snd %> go) r in
+  go
 
 (* substitute:
    takes in an int tv representing a tvar, a type replace_tp to replace it with, and a type tp.
 
    traverses the type tp and replaces all instances of TVar tv with replace_tp.
 *)
+let substitute tv ~replace_with =
+  let rec go =
+    function
+    | Ast.Type.Record r -> Ast.Type.Record (record r)
+    | Ast.Type.Variant () -> Ast.Type.Variant ()
+    | Ast.Type.Function (r, t) -> Ast.Type.Function (record r, go t)
+    | Ast.Type.EVar ev -> Ast.Type.EVar ev
+    | Ast.Type.TVar tv' ->
+      if Int.(tv = tv') then replace_with else Ast.Type.TVar tv'
+  and record r = List.map (Pair.map2 go) r in
+  go
+  
+
 
 (*
 type context =
