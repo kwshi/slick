@@ -13,6 +13,8 @@ module Type = struct
     | Record of record
     | Variant of unit (* TODO *)
     | Function of (record * t)
+    | EVar of int
+    | TVar of int
   [@@deriving show]
   and record = (string * t) list
   [@@deriving show]
