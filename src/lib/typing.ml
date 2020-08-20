@@ -22,7 +22,7 @@ type context =
   )
 *)
 
-let fresh_evar to_type to_ctx_elem ctx =
+let fresh_evar ctx =
   ( Ast.Type.EVar ctx.next_var
   , Context_evar ctx.next_var
   , {ctx with next_var = ctx.next_var + 1})
@@ -57,10 +57,10 @@ let solve_evar ev tp =
      if found then ctx' else failwith "solve_evar not found"
 
 let lookup_var v ctx = List.find_map
-  (function | Context_var v' tp when Int.(v == v') -> Some tp
+  (function | Context_var (v', tp) when String.(equal v v') -> Some tp
             | _ -> None)
   ctx.context
-  |> Option.get_or ~default:(failwith "lookup_var unbound var: " ^ v ^ ".")
+  |> Option.get_lazy (fun () -> failwith @@ "lookup_var unbound var: " ^ v ^ ".")
 
 (* drop_ctx_from:
    takes in a context_element ce and a context.
@@ -113,7 +113,7 @@ let apply_ctx ctx =
       |> Option.get_or ~default:(Ast.Type.EVar ev)
 
     | Ast.Type.TVar tv -> Ast.Type.TVar tv
-    | Ast.Type.Forall tv tp -> Ast.Type.Forall tv (apply_ctx tp)
+    | Ast.Type.Forall (tv, tp) -> Ast.Type.Forall (tv, go tp)
   and record r = List.map (Pair.map2 go) r in
   go
 
@@ -158,7 +158,7 @@ let occurs_check ev =
       if Int.(ev = ev')
       then failwith "occurs_check"
     | Ast.Type.TVar _ -> ()
-    | Ast.Type.Forall tv tp -> go tp
+    | Ast.Type.Forall (_, tp) -> go tp
   and record r = List.iter (snd %> go) r in
   go
 
@@ -175,9 +175,9 @@ let substitute tv ~replace_with =
     | Ast.Type.Function (r, t) -> Ast.Type.Function (record r, go t)
     | Ast.Type.EVar ev -> Ast.Type.EVar ev
     | Ast.Type.TVar tv' ->
-      if String.(tv = tv') then replace_with else Ast.Type.TVar tv'
-    | Ast.Type.Forall tv' tp ->
-      if String.(tv = tv') then Ast.Type.Forall tv' tp else Ast.Type.Forall tv' (substitute tv replace_with)
+      if String.(equal tv tv') then replace_with else Ast.Type.TVar tv'
+    | Ast.Type.Forall (tv', tp) ->
+      if String.(equal tv tv') then Ast.Type.Forall (tv', tp) else Ast.Type.Forall (tv', go tp)
   and record r = List.map (Pair.map2 go) r in
   go
 
@@ -185,40 +185,44 @@ let substitute tv ~replace_with =
 (* INFERENCE and CHECKING *)
 
 let rec infer ctx annotated =
-  let open Ast in
-  match annotated.expr with
+  match annotated.Ast.Expr.expr with
   (* Var  *)
-  | Var v    -> let tp = lookup_var v ctx in ({ annotated with tp }, ctx)
+  | Ast.Expr.Var v    -> let tp = lookup_var v ctx in ({ annotated with tp }, ctx)
   (* RcdI => *)
-  | Record r ->
-    let inferred_rcd, new_ctx =
+  | Ast.Expr.Record r ->
+    let new_ctx, inferred_rcd =
       List.fold_map
-        (fun ctx row_pair ->
-          let label, e = row_pair in
+        (fun ctx (label, e) ->
           let inferred_e, new_ctx = infer ctx e in
-          ((label, inferred_e), new_ctx))
+          (new_ctx, (label, inferred_e)))
+        ctx
         r
     in
     ( { expr = Record inferred_rcd
-      ; tp = List.map (Pair.map2 (fun e -> e.tp) inferred_rcd)
+      ; tp = Record (List.map (Pair.map2 (fun e -> e.Ast.Expr.tp)) inferred_rcd)
       }
     , new_ctx )
   (* ->I => *)
-  | Function (r, e) ->
+  | Ast.Expr.Function (r, e) ->
     let ev_tp, ev_ce, ctx' = fresh_evar ctx in
     (* The context marker is added to make it possible to drop from the context even if no vars are added
        I just use ev_ce since it's available. *)
-    let fun_ctx = append_ctx (ev_ce :: Context_marker ev_ce :: List.map (function | (lbl, tp) -> Context_var lbl tp) r) ctx' in
+    let marker = Context_marker ev_ce in
+    let fun_ctx =
+      append_ctx
+        (ev_ce :: marker :: List.map (fun (lbl, tp) -> Context_var (lbl, tp)) r)
+        ctx'
+    in
     let e_checked, new_ctx = check fun_ctx e ev_tp in
-    let fun_tp = Type.Function (r, ev_tp) in
-    ({ expr= Function r e_checked; tp=fun_tp }, drop_ctx_from (Context_marker ev_ce))
+    let fun_tp = Ast.Type.Function (r, ev_tp) in
+    ({ Ast.Expr.expr= Function (r, e_checked); Ast.Expr.tp=fun_tp }, drop_ctx_from marker new_ctx)
   (* ->E *)
-  | Application (e, r) ->
+  | Ast.Expr.Application (e, r) ->
     let e_inferred, new_ctx = infer ctx e in
     let r_inferred, output_tp, new_ctx' = infer_app new_ctx (apply_ctx new_ctx e_inferred.tp) r in
     ({expr = Application (e, r); tp = output_tp}, new_ctx')
   (* TODO *)
-  | Variant v -> ({annotated with tp=()}, ctx)
+  | Ast.Expr.Variant v -> ({annotated with tp=Ast.Type.Variant ()}, ctx)
 
 let rec check ctx annotated tp =
   let open Ast in
