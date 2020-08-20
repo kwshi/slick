@@ -1,4 +1,4 @@
-open Containers 
+open Containers
 
 exception SyntaxError of string
 
@@ -14,7 +14,8 @@ module Type = struct
     | Variant of unit (* TODO *)
     | Function of (record * t)
     | EVar of int
-    | TVar of int
+    | TVar of var_name
+    | Forall of var_name * t
   [@@deriving show]
   and record = (string * t) list
   [@@deriving show]
@@ -40,7 +41,7 @@ module Expr = struct
   module Untyped = struct
     type 'a expr = 'a t
     type t = unit expr
-        
+
     let make expr = { tp = (); expr }
     let make_function r e = make @@ Function (r, e)
     let make_application e1 e2 = make @@ Application (e1, e2)

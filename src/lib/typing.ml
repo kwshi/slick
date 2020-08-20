@@ -6,7 +6,7 @@ open Fun
 type context_element =
   | Context_var of string * Ast.Type.t (* Ast.var_name instead of string? *)
   | Context_evar of int
-  | Context_tvar of int
+  | Context_tvar of string
   | Context_evar_assignment of int * Ast.Type.t
   | Context_marker of context_element (* this should only ever be an evar, so it probably could be an int *)
 
@@ -15,23 +15,19 @@ type context =
   ; context  : context_element list
   }
 
-(* Smart constructors for making fresh tvars/evars. Returns a tuple consisting of
+(* Smart constructors for making fresh evars. Returns a tuple consisting of
   ( var as a type
   , var as a ctx element
   , new_ctx
   )
 *)
 
-let over_context f ctx = { ctx with context = f ctx.context }
-
-let fresh_var to_type to_ctx_elem ctx =
-  ( to_type ctx.next_var
-  , to_ctx_elem ctx.next_var
+let fresh_evar to_type to_ctx_elem ctx =
+  ( Ast.Type.EVar ctx.next_var
+  , Context_evar ctx.next_var
   , {ctx with next_var = ctx.next_var + 1})
 
-let fresh_tvar = fresh_var (fun i -> Ast.Type.TVar i) (fun i -> Context_tvar i)
-
-let fresh_evar = fresh_var (fun i -> Ast.Type.EVar i) (fun i -> Context_evar i)
+let over_context f ctx = { ctx with context = f ctx.context }
 
 (* CONTEXT FUNCTIONS *)
 
@@ -60,6 +56,12 @@ let solve_evar ev tp =
      in
      if found then ctx' else failwith "solve_evar not found"
 
+let lookup_var v ctx = List.find_map
+  (function | Context_var v' tp when Int.(v == v') -> Some tp
+            | _ -> None)
+  ctx.context
+  |> Option.get_or ~default:(failwith "lookup_var unbound var: " ^ v ^ ".")
+
 (* drop_ctx_from:
    takes in a context_element ce and a context.
 
@@ -69,7 +71,7 @@ let solve_evar ev tp =
 *)
 let drop_ctx_from ce =
   over_context @@ fun ctx ->
-  let found, ctx' = List.fold_filter_map 
+  let found, ctx' = List.fold_filter_map
     (fun found ce' ->
       (match found, Stdlib.(ce' = ce) (* TODO get rid of polymorphic comparison *) with
        | true, true -> failwith "drop_ctx_from multiple matches"
@@ -81,7 +83,7 @@ let drop_ctx_from ce =
     ctx
   in
   if found then ctx' else failwith "drop_ctx_from not found"
-    
+
 
 (* apply_ctx:
    takes in a context ctx and a type tp.
@@ -111,9 +113,10 @@ let apply_ctx ctx =
       |> Option.get_or ~default:(Ast.Type.EVar ev)
 
     | Ast.Type.TVar tv -> Ast.Type.TVar tv
+    | Ast.Type.Forall tv tp -> Ast.Type.Forall tv (apply_ctx tp)
   and record r = List.map (Pair.map2 go) r in
   go
-    
+
 
 (* insert_before_in_ctx
    takes in a context element ce, a list of context elements ces, and a context ctx.
@@ -133,8 +136,10 @@ let insert_before_in_ctx ce ces =
        ) @ ce :: acc
     )
     []
-  
-    
+
+let append_ctx ces = over_context @@ fun context -> List.append context ces
+
+
 (* TYPE FUNCTIONS *)
 
 (* occurs_check:
@@ -153,6 +158,7 @@ let occurs_check ev =
       if Int.(ev = ev')
       then failwith "occurs_check"
     | Ast.Type.TVar _ -> ()
+    | Ast.Type.Forall tv tp -> go tp
   and record r = List.iter (snd %> go) r in
   go
 
@@ -169,79 +175,56 @@ let substitute tv ~replace_with =
     | Ast.Type.Function (r, t) -> Ast.Type.Function (record r, go t)
     | Ast.Type.EVar ev -> Ast.Type.EVar ev
     | Ast.Type.TVar tv' ->
-      if Int.(tv = tv') then replace_with else Ast.Type.TVar tv'
+      if String.(tv = tv') then replace_with else Ast.Type.TVar tv'
+    | Ast.Type.Forall tv' tp ->
+      if String.(tv = tv') then Ast.Type.Forall tv' tp else Ast.Type.Forall tv' (substitute tv replace_with)
   and record r = List.map (Pair.map2 go) r in
   go
-  
 
 
-(*
-type context =
-  { next_uvar : int (* TODO convert to context from complete and easy *)
-  ; lt : Ast.type_ LookupTable.t
-  ; uvar_assignments : Ast.type_ UVarTable.t
-  }
+(* INFERENCE and CHECKING *)
 
-let fresh_uvar ctx =
-  (Ast.Type_uvar @@ ctx.next_uvar, { ctx with next_uvar = ctx.next_uvar + 1 })
-
-
-(* TODO use result *)
 let rec infer ctx annotated =
   let open Ast in
   match annotated.expr with
-  | Var v ->
-    ( match LookupTable.find_opt (Context_var v) ctx.lt with
-    | None ->
-        failwith @@ "Variable " ^ v ^ " not in context."
-    | Some tp ->
-        ({ annotated with tp }, ctx)
-    | Record r ->
-        let inferred_rcd, new_ctx =
-          List.fold_map
-            (fun ctx row_pair ->
-              let label, e = row_pair in
-              let inferred_e, new_ctx = infer ctx e in
-              ((label, inferred_e), new_ctx))
-            r
-        in
-        ( { expr = Record inferred_rcd
-          ; tp = List.map (Pair.map2 (fun e -> e.tp) inferred_rcd)
-          }
-        , new_ctx )
-    | Variant v ->
-        let inferred_var, new_ctx =
-          Pair.map2
-          @@ List.fold_map
-               (fun ctx row_pair ->
-                 let label, e = row_pair in
-                 let inferred_e, new_ctx = infer ctx e in
-                 ((label, inferred_e), new_ctx))
-               r
-        in
-        ( { expr = Variant inferred_var
-          ; tp = List.map (Pair.map2 (fun e -> e.tp) @@ Pair.snd inferred_var)
-          }
-        , new_ctx )
-    | Function f ->
-        let rcd, e = f in
-        let rcd_ctx =
-          LookupTable.of_list @@ LookupTable.map (Pair.map1 Context_var) rcd
-        in
-        let uv, fun_ctx =
-          fresh_uvar @@ LookupTable.union (fun _ _ b -> Some b) ctx.lt rcd_ctx
-        in
-        let checked_e, new_ctx = check fun_ctx e uv in
-        (* revert to the old lookup table -- but preserve uvar
-           assignments. We don't want to persist the bound variables
-           from the function input, but we can't simply remove them
-           from the lookup table. This should be OK, but might lose
-           some changes made if implemented improperly. *)
-        ( { expr = Function (rcd, checked_e); tp = Type_function (rcd, uv) }
-        , { new_ctx with lt = ctx.lt } )
-    | Application a ->
-        let e1, e2 = a in
-        let e1_tp, ctx_1 = infer ctx e1 in
-        a )
+  (* Var  *)
+  | Var v    -> let tp = lookup_var v ctx in ({ annotated with tp }, ctx)
+  (* RcdI => *)
+  | Record r ->
+    let inferred_rcd, new_ctx =
+      List.fold_map
+        (fun ctx row_pair ->
+          let label, e = row_pair in
+          let inferred_e, new_ctx = infer ctx e in
+          ((label, inferred_e), new_ctx))
+        r
+    in
+    ( { expr = Record inferred_rcd
+      ; tp = List.map (Pair.map2 (fun e -> e.tp) inferred_rcd)
+      }
+    , new_ctx )
+  (* ->I => *)
+  | Function (r, e) ->
+    let ev_tp, ev_ce, ctx' = fresh_evar ctx in
+    (* The context marker is added to make it possible to drop from the context even if no vars are added
+       I just use ev_ce since it's available. *)
+    let fun_ctx = append_ctx (ev_ce :: Context_marker ev_ce :: List.map (function | (lbl, tp) -> Context_var lbl tp) r) ctx' in
+    let e_checked, new_ctx = check fun_ctx e ev_tp in
+    let fun_tp = Type.Function (r, ev_tp) in
+    ({ expr= Function r e_checked; tp=fun_tp }, drop_ctx_from (Context_marker ev_ce))
+  (* ->E *)
+  | Application (e, r) ->
+    let e_inferred, new_ctx = infer ctx e in
+    let r_inferred, output_tp, new_ctx' = infer_app new_ctx (apply_ctx new_ctx e_inferred.tp) r in
+    ({expr = Application (e, r); tp = output_tp}, new_ctx')
+  (* TODO *)
+  | Variant v -> ({annotated with tp=()}, ctx)
 
-   *)
+let rec check ctx annotated tp =
+  let open Ast in
+  match tp with
+  | Forall tv tp' ->
+    let ctx' = append_ctx [Context_tvar tv] ctx in
+    let checked_e, new_ctx = check ctx' annotated tp' in
+    ({ checked_e with tp=Type.Forall tv (checked_e.tp) }, drop_ctx_from (Context_tvar tv) new_ctx)
+  | 
