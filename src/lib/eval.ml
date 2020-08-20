@@ -42,9 +42,7 @@ let rec evaluate ctx annotated =
   | Application (f, r) ->
     ( match evaluate ctx f with
     | Value_function fn ->
-        { lookup_table = evaluate_record ctx r |> LookupTable.of_list
-        }
-        |> fn
+        { lookup_table = evaluate_record ctx r |> LookupTable.of_list } |> fn
     | _ ->
         failwith "not a function" )
   | Record r ->
@@ -52,6 +50,7 @@ let rec evaluate ctx annotated =
   | Variant (s, r) ->
       Value_variant (s, evaluate_record ctx r)
   | Var s ->
-    LookupTable.find s ctx.lookup_table
-and evaluate_record ctx =
-  List.map (Pair.map2 (evaluate ctx))
+      LookupTable.find s ctx.lookup_table
+
+
+and evaluate_record ctx = List.map (Pair.map2 (evaluate ctx))
