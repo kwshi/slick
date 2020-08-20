@@ -226,9 +226,28 @@ let rec infer ctx annotated =
 
 let rec check ctx annotated tp =
   let open Ast in
-  match tp with
-  | Forall tv tp' ->
+  match annotated.expr, tp with
+  (* forall I *)
+  | _, Type.Forall (tv, tp') ->
     let ctx' = append_ctx [Context_tvar tv] ctx in
     let checked_e, new_ctx = check ctx' annotated tp' in
     ({ checked_e with tp=Type.Forall tv (checked_e.tp) }, drop_ctx_from (Context_tvar tv) new_ctx)
-  | 
+  (* -> I *)
+  | Function (r1,e), Type.Function (r2,return_tp)  ->
+    (* Hack: we create an evar we don't use so we can make a context marker out of it.
+       Maybe we should just support creating fresh context markers. *)
+    let _, ev_ce, ctx' = fresh_evar @@ subsumes ctx (Type.Record r1) r2 in
+    let marker = Context_marker ev_ce in
+    let fun_ctx = append_ctx (Context_marker ev_ce :: List.map (function | rp -> Context_var rp) r2) ctx' in
+    let checked_e, new_ctx = check fun_ctx e return_tp in
+    (* Should we stick with the type we're checking against or the declared type for the record input?
+       Right now we do the declared type. *)
+    ({expr=Function(r1, checked_e), tp=Type.Function(r1, return_tp)}, drop_ctx_from marker new_ctx)
+  (* Sub *)
+  | _ ->
+    let e_inferred, ctx' = infer ctx annotated in
+    let new_ctx = subsumes ctx' (apply_ctx ctx' e_inferred.tp) (apply_ctx ctx' tp) in
+    ({e_inferred with tp}, new_ctx)
+
+let infer_app = failwith "infer_app: unimplemented"
+let subsumes = failwith "subsumes: unimplemented"
