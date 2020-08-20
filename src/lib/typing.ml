@@ -299,6 +299,6 @@ and check ctx annotated tp =
       ({ e_inferred with tp }, new_ctx)
 
 
-and infer_app = failwith "infer_app: unimplemented"
+and infer_app _ = failwith "infer_app: unimplemented"
 
-and subsumes = failwith "subsumes: unimplemented"
+and subsumes _ = failwith "subsumes: unimplemented"
