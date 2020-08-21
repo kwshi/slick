@@ -211,12 +211,12 @@ let substitute tv ~replace_with =
 
 (* INFERENCE and CHECKING *)
 
-let rec infer ctx annotated =
+let rec infer ctx (annotated : Ast.Expr.Untyped.t) : Ast.Type.t Ast.Expr.t * context=
   match annotated.Ast.Expr.expr with
   (* Var  *)
   | Ast.Expr.Var v ->
       let tp = lookup_var v ctx in
-      ({ annotated with tp }, ctx)
+      ({ Ast.Expr.expr = Var v; tp }, ctx)
   (* RcdI => *)
   | Ast.Expr.Record r ->
       let new_ctx, inferred_rcd =
@@ -255,11 +255,10 @@ let rec infer ctx annotated =
       let r_inferred, output_tp, new_ctx' =
         infer_app new_ctx (apply_ctx new_ctx e_inferred.tp) r
       in
-      ignore r_inferred ;
-      ({ expr = Application (e, r); tp = output_tp }, new_ctx')
+      ({ expr = Application (e_inferred, r_inferred); tp = output_tp }, new_ctx')
   (* TODO *)
   | Ast.Expr.Variant _ ->
-      ({ annotated with tp = Ast.Type.Variant () }, ctx)
+      ({ expr = Ast.Expr.Variant ("", []); tp = Ast.Type.Variant () }, ctx)
 
 
 and check ctx annotated tp =
