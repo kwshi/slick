@@ -2,24 +2,20 @@ open Containers
 
 exception SyntaxError of string
 
-type var_name = string
-
-let pp_var_name = Format.string
-
 type label = string
 
 let pp_label = Format.string
+
+type var_name = string
+
+let pp_var_name = Format.string
 
 module Type = struct
   type t =
     | Record of record
     | Variant of unit (* TODO *)
     | Function of (record * t)
-    | EVar of int
-    | TVar of var_name
-    | Forall of var_name * t
   [@@deriving show]
-
   and record = (string * t) list [@@deriving show]
 end
 

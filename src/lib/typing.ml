@@ -4,12 +4,39 @@ open Fun
 (* module LookupTable = Map.Make (String)
  * module UVarTable = Map.Make (Int) *)
 
+type var_name = string
+
+let pp_var_name = Format.string
+
+type label = string
+
+let pp_label = Format.string
+
+type tail =
+  | Tail_evar of int
+  | Tail_tvar of var_name
+type t =
+  | Record of row
+  | Variant of unit
+  | Function of (row * t)
+  | EVar of int
+  | TVar of var_name
+  | Forall of var_name * t
+and row = (label * t) list * tail option
+
 type context_element =
-  | Context_var of string * Ast.Type.t (* Ast.var_name instead of string? *)
+  | Context_var of string * t (* Ast.var_name instead of string? *)
+  | Context_row_evar of int
+  | Context_row_tvar of string
   | Context_evar of int
   | Context_tvar of string
-  | Context_evar_assignment of int * Ast.Type.t
+  | Context_evar_assignment of int * t
+  | Context_row_evar_assignment of int * row
   | Context_marker of context_element
+
+let map_row f = Pair.map1 (List.map (Pair.map2 f))
+let iter_row f = fst %> List.iter (snd %> f)
+
 
 (* this should only ever be an evar, so it probably could be an int *)
 
@@ -27,7 +54,7 @@ type context =
 *)
 
 let fresh_evar ctx =
-  ( Ast.Type.EVar ctx.next_var
+  ( EVar ctx.next_var
   , Context_evar ctx.next_var
   , { ctx with next_var = ctx.next_var + 1 } )
 
@@ -57,6 +84,21 @@ let solve_evar ev tp =
       ctx
   in
   if found then ctx' else failwith "solve_evar not found"
+
+let solve_row_evar ev r =
+  over_context
+  @@ fun ctx ->
+  let found, ctx' =
+    List.fold_map
+      (fun found -> function Context_row_evar ev' when Int.(ev = ev') ->
+          if found
+          then failwith "solve_row_evar multiple matches"
+          else (true, Context_row_evar_assignment (ev, r)) | ce -> (found, ce))
+      false
+      ctx
+  in
+  if found then ctx' else failwith "solve_row_evar not found"
+
 
 
 let lookup_var v ctx =
@@ -112,28 +154,39 @@ let drop_ctx_from ce =
 *)
 let apply_ctx ctx =
   let rec go = function
-    (* TODO don't use ast types *)
-    | Ast.Type.Record r ->
-        Ast.Type.Record (record r)
-    | Ast.Type.Variant () ->
-        Ast.Type.Variant ()
-    | Ast.Type.Function (r, t) ->
-        Ast.Type.Function (record r, go t)
-    | Ast.Type.EVar ev ->
+    | Record r ->
+        Record (row r)
+    | Function (r, t) ->
+        Function (row r, go t)
+    | EVar ev ->
         ctx.context
         |> List.find_map (function
-               | Context_evar_assignment (ev', t) when Int.(ev = ev') ->
-                   Some t
-               | _ ->
-                   None)
-        |> Option.get_or ~default:(Ast.Type.EVar ev)
-    | Ast.Type.TVar tv ->
-        Ast.Type.TVar tv
-    | Ast.Type.Forall (tv, tp) ->
-        Ast.Type.Forall (tv, go tp)
-  and record r = List.map (Pair.map2 go) r in
+            | Context_evar_assignment (ev', t) when Int.(ev = ev') ->
+              Some t
+            | _ ->
+              None)
+        |> Option.get_or ~default:(EVar ev)
+    | Forall (tv, tp) ->
+        Forall (tv, go tp)
+    | t ->
+      t 
+  and row (l, t) =
+    let l' = List.map (Pair.map2 go) l in
+    match t with
+    | Some (Tail_evar ev) ->
+      ctx.context
+      |> List.find_map (function
+          | Context_row_evar_assignment (ev', r) when Int.(ev = ev') ->
+            Some r
+          | _ ->
+            None
+        )
+      |> Option.map_or ~default:(l', t) (fun (l'', t') -> (l' @ l'', t'))
+        
+    | _ ->
+      (l', t)
+  in
   go
-
 
 (* insert_before_in_ctx
    takes in a context element ce, a list of context elements ces, and a context ctx.
@@ -166,21 +219,28 @@ let append_ctx ces = over_context @@ fun context -> List.append context ces
    errors if it is.
 *)
 let occurs_check ev =
+  let check_tail =
+    function
+    | Some (Tail_evar ev') when Int.(ev = ev') ->
+      failwith "occurs_check"
+    | _ ->
+      ()
+  in
   let rec go = function
-    | Ast.Type.Record r ->
-        record r
-    | Ast.Type.Variant () ->
-        ()
-    | Ast.Type.Function (r, t) ->
-        record r ;
-        go t
-    | Ast.Type.EVar ev' ->
-        if Int.(ev = ev') then failwith "occurs_check"
-    | Ast.Type.TVar _ ->
-        ()
-    | Ast.Type.Forall (_, tp) ->
-        go tp
-  and record r = List.iter (snd %> go) r in
+    | Function (r, t) ->
+      check_tail (snd r) ;
+      fst r |> List.iter (snd %> go) ;
+      go t
+    | EVar ev' when Int.(ev = ev') ->
+      failwith "occurs_check"
+    | Record r ->
+      check_tail (snd r);
+      fst r |> List.iter (snd %> go)
+    | Forall (_, tp) ->
+      go tp
+    | _ ->
+      ()
+  in
   go
 
 
@@ -191,27 +251,27 @@ let occurs_check ev =
 *)
 let substitute tv ~replace_with =
   let rec go = function
-    | Ast.Type.Record r ->
-        Ast.Type.Record (record r)
-    | Ast.Type.Variant () ->
-        Ast.Type.Variant ()
-    | Ast.Type.Function (r, t) ->
-        Ast.Type.Function (record r, go t)
-    | Ast.Type.EVar ev ->
-        Ast.Type.EVar ev
-    | Ast.Type.TVar tv' ->
-        if String.(equal tv tv') then replace_with else Ast.Type.TVar tv'
-    | Ast.Type.Forall (tv', tp) ->
+    | Record r ->
+        Record (Pair.map1 (List.map @@ Pair.map2 go) r)
+    | Variant () ->
+        Variant ()
+    | Function (r, t) ->
+        Function (Pair.map1 (List.map @@ Pair.map2 go) r, go t)
+    | EVar ev ->
+        EVar ev
+    | TVar tv' ->
+        if String.(equal tv tv') then replace_with else TVar tv'
+    | Forall (tv', tp) ->
         if String.(equal tv tv')
-        then Ast.Type.Forall (tv', tp)
-        else Ast.Type.Forall (tv', go tp)
-  and record r = List.map (Pair.map2 go) r in
+        then Forall (tv', tp)
+        else Forall (tv', go tp)
+  in
   go
 
 
 (* INFERENCE and CHECKING *)
 
-let rec infer ctx (annotated : Ast.Expr.Untyped.t) : Ast.Type.t Ast.Expr.t * context=
+let rec infer ctx (annotated : Ast.Expr.Untyped.t) : t Ast.Expr.t * context=
   match annotated.Ast.Expr.expr with
   (* Var  *)
   | Ast.Expr.Var v ->
@@ -229,11 +289,11 @@ let rec infer ctx (annotated : Ast.Expr.Untyped.t) : Ast.Type.t Ast.Expr.t * con
       in
       ( { expr = Record inferred_rcd
         ; tp =
-            Record (List.map (Pair.map2 (fun e -> e.Ast.Expr.tp)) inferred_rcd)
+            Record (List.map (Pair.map2 (fun e -> e.Ast.Expr.tp)) inferred_rcd, None)
         }
       , new_ctx )
   (* ->I => *)
-  | Ast.Expr.Function (r, e) ->
+  | Ast.Expr.Function ((r, _), e) ->
       let ev_tp, ev_ce, ctx' = fresh_evar ctx in
       (* The context marker is added to make it possible to drop from the context even if no vars are added
          I just use ev_ce since it's available. *)
@@ -246,7 +306,7 @@ let rec infer ctx (annotated : Ast.Expr.Untyped.t) : Ast.Type.t Ast.Expr.t * con
           ctx'
       in
       let e_checked, new_ctx = check fun_ctx e ev_tp in
-      let fun_tp = Ast.Type.Function (r, ev_tp) in
+      let fun_tp = Function (r, ev_tp) in
       ( { Ast.Expr.expr = Function (r, e_checked); Ast.Expr.tp = fun_tp }
       , drop_ctx_from marker new_ctx )
   (* ->E *)
@@ -258,7 +318,7 @@ let rec infer ctx (annotated : Ast.Expr.Untyped.t) : Ast.Type.t Ast.Expr.t * con
       ({ expr = Application (e_inferred, r_inferred); tp = output_tp }, new_ctx')
   (* TODO *)
   | Ast.Expr.Variant _ ->
-      ({ expr = Ast.Expr.Variant ("", []); tp = Ast.Type.Variant () }, ctx)
+      ({ expr = Ast.Expr.Variant ("", []); tp = Variant () }, ctx)
 
 
 and check ctx annotated tp =
