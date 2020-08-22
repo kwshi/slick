@@ -302,35 +302,36 @@ and infer_app ctx tp args =
   let open Ast in
   match tp with
   (* Forall App *)
-  | Type.Forall tv forall_inner =
+  | Type.Forall (tv, forall_inner) ->
     let ev_tp, ev_ce, ctx' = fresh_evar ctx in
     let subst_ctx = append_ctx [ev_ce] ctx' in
-    let subst_forall_inner = substitute (Type.TVar tv) ~replace_with:(ev_tp) forall_inner in
-    infer_app subst_ctx subst_forall_inner r
+    let subst_forall_inner = substitute tv ~replace_with:(ev_tp) forall_inner in
+    infer_app subst_ctx subst_forall_inner args
   (* -> App *)
   | Type.Function (arg_types, return_tp) ->
-    let checked_rcd, new_ctx = check ctx (Expr.Record args) (Type.Record arg_types) in
-    match checked_rcd with
-    | Expr.Record checked_args -> (checked_args, return_tp, new_ctx)
-    | _ -> failwith "infer_app: got non-record (this shouldn't happen)"
+    let checked_rcd, new_ctx = check ctx (Expr.Untyped.make_record args) (Type.Record arg_types) in
+    (match checked_rcd.expr with
+     | Expr.Record checked_args -> (checked_args, return_tp, new_ctx)
+     | _ -> failwith "infer_app: got non-record (this shouldn't happen)"
+    )
   (* EVar App *)
-  | Type.EVar ev -> failwith "infer_app: EVar app unimplemented"
+  | Type.EVar ev -> ignore ev; failwith "infer_app: EVar app unimplemented"
   | _ -> failwith "infer_app: Got unexpected type."
 
 and subsumes ctx tp1 tp2 =
   let open Ast in
   match (tp1, tp2) with
   (* EVar *)
-  | Type.EVar ev1, Typ.EVar ev2 with Int.(ev1 = ev2) -> ctx
+  | Type.EVar ev1, Type.EVar ev2 when Int.(ev1 = ev2) -> ctx
   (* TVar *)
-  | Type.TVar tv1, Typ.TVar tv2 with String.(tv1 = tv2) -> ctx
+  | Type.TVar tv1, Type.TVar tv2 when String.(equal tv1 tv2) -> ctx
   (* Forall L *)
   | Type.Forall (tv, forall_inner), tp2 ->
     let ev_tp, ev_ce, ctx' = fresh_evar ctx in
     let marker = Context_marker ev_ce in
-    let subst_ctx = append_ctx [marker, ev_ce] ctx' in
-    let subst_forall_inner = substitute (Type.TVar tv) ~replace_with:(ev_tp) forall_inner in
-    subsumes subst_ctx substs_forall_inner tp2
+    let subst_ctx = append_ctx [marker; ev_ce] ctx' in
+    let subst_forall_inner = substitute tv ~replace_with:(ev_tp) forall_inner in
+    subsumes subst_ctx subst_forall_inner tp2
     |> drop_ctx_from marker
   (* Forall R *)
   | tp1, Type.Forall (tv, forall_inner) ->
@@ -339,10 +340,12 @@ and subsumes ctx tp1 tp2 =
     |> drop_ctx_from (Context_tvar tv)
   (* -> *)
   | Type.Function (r1, return_tp1), Type.Function(r2, return_tp2) ->
-    let ctx' = subsumes ctx (Type.record r2) (Type.record r1) in
+    let ctx' = subsumes ctx (Type.Record r2) (Type.Record r1) in
     subsumes ctx' (apply_ctx ctx' return_tp1) (apply_ctx ctx' return_tp2)
   (* Record *)
-  | Type.Record r1, Type.Record r2 -> failwith "subsumes: record unimplemented"
+  | Type.Record r1, Type.Record r2 ->
+    ignore r1; ignore r2;
+    failwith "subsumes: record unimplemented"
   (* InstantiateL *)
   | Type.EVar ev1, tp2 -> instantiateL ctx ev1 tp2
   (* InstantiateR *)
@@ -353,18 +356,19 @@ and instantiateL ctx ev tp =
   let open Ast in
   match tp with
   (* InstLArr *)
-  | Type.Function (r, return_tp) -> failwith "instantiateL: function unimplemented"
+  | Type.Function (r, return_tp) -> ignore (r, return_tp); failwith "instantiateL: function unimplemented"
   (* InstLReach *)
   | Type.EVar ev2 -> instantiateReach ctx ev ev2
   (* InstLRcd *)
-  | Type.Record r -> failWith "instantiateL: record unimplemented"
+  | Type.Record r -> ignore r; failwith "instantiateL: record unimplemented"
   (* InstLAllR *)
   | Type.Forall (tv, forall_inner) ->
     let ctx' = append_ctx [Context_tvar tv] ctx in
     instantiateL ctx' ev forall_inner
-    |> drop_ctx_from Context_tvar tv
+    |> drop_ctx_from (Context_tvar tv)
+  | _ -> failwith "dead"
 
-and instantiateR ctx tp ev = failwith "instantiateR: unimplemented"
+and instantiateR ctx tp ev = ignore (ctx, tp, ev); failwith "instantiateR: unimplemented"
 
 (* find where ev1 and ev2 are located in the context. Assign the later one to the earlier one.*)
-and instantiateReach ctx ev1 ev2 = failwith "instantiateReach: unimplemented"
+and instantiateReach ctx ev1 ev2 = ignore (ctx, ev1, ev2); failwith "instantiateReach: unimplemented"
