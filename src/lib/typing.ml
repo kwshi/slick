@@ -15,14 +15,17 @@ let pp_label = Format.string
 type tail =
   | Tail_evar of int
   | Tail_tvar of var_name
+  [@@deriving show]
 type t =
   | Record of row
   | Variant of unit
-  | Function of (row * t)
+  | Function of (t * t)
   | EVar of int
   | TVar of var_name
   | Forall of var_name * t
+  [@@deriving show]
 and row = (label * t) list * tail option
+  [@@deriving show]
 
 type context_element =
   | Context_var of string * t (* Ast.var_name instead of string? *)
@@ -46,6 +49,8 @@ type context =
   ; context : context_element list
   }
 
+let empty_ctx = { next_var = 0; context = [] }
+
 (* Smart constructors for making fresh evars. Returns a tuple consisting of
   ( var as a type
   , var as a ctx element
@@ -56,6 +61,13 @@ type context =
 let fresh_evar ctx =
   ( EVar ctx.next_var
   , Context_evar ctx.next_var
+  , ctx.next_var
+  , { ctx with next_var = ctx.next_var + 1 } )
+
+let fresh_row_evar ctx =
+  ( Tail_evar ctx.next_var
+  , Context_row_evar ctx.next_var
+  , ctx.next_var
   , { ctx with next_var = ctx.next_var + 1 } )
 
 
@@ -156,8 +168,8 @@ let apply_ctx ctx =
   let rec go = function
     | Record r ->
         Record (row r)
-    | Function (r, t) ->
-        Function (row r, go t)
+    | Function (t1, t2) ->
+        Function (go t1, go t2)
     | EVar ev ->
         ctx.context
         |> List.find_map (function
@@ -227,10 +239,9 @@ let occurs_check ev =
       ()
   in
   let rec go = function
-    | Function (r, t) ->
-      check_tail (snd r) ;
-      fst r |> List.iter (snd %> go) ;
-      go t
+    | Function (t1, t2) ->
+      go t1;
+      go t2;
     | EVar ev' when Int.(ev = ev') ->
       failwith "occurs_check"
     | Record r ->
@@ -255,8 +266,8 @@ let substitute tv ~replace_with =
         Record (Pair.map1 (List.map @@ Pair.map2 go) r)
     | Variant () ->
         Variant ()
-    | Function (r, t) ->
-        Function (Pair.map1 (List.map @@ Pair.map2 go) r, go t)
+    | Function (t1, t2) ->
+        Function (go t1, go t2)
     | EVar ev ->
         EVar ev
     | TVar tv' ->
@@ -271,7 +282,11 @@ let substitute tv ~replace_with =
 
 (* INFERENCE and CHECKING *)
 
-let rec infer ctx (annotated : Ast.Expr.Untyped.t) : t Ast.Expr.t * context=
+let rec infer_top ctx annotated =
+  let inferred, new_ctx = infer ctx annotated in
+  ({inferred with tp=apply_ctx new_ctx inferred.tp}, new_ctx)
+
+and infer ctx (annotated : Ast.Expr.Untyped.t) : t Ast.Expr.t * context=
   match annotated.Ast.Expr.expr with
   (* Var  *)
   | Ast.Expr.Var v ->
@@ -293,29 +308,25 @@ let rec infer ctx (annotated : Ast.Expr.Untyped.t) : t Ast.Expr.t * context=
         }
       , new_ctx )
   (* ->I => *)
-  | Ast.Expr.Function ((r, _), e) ->
-      let ev_tp, ev_ce, ctx' = fresh_evar ctx in
+  | Ast.Expr.Function (var, e) ->
+      let arg_ev_tp, arg_ev_ce, _, ctx' = fresh_evar ctx in
+      let ret_ev_tp, ret_ev_ce, _, ctx'' = fresh_evar ctx' in
       (* The context marker is added to make it possible to drop from the context even if no vars are added
          I just use ev_ce since it's available. *)
-      let marker = Context_marker ev_ce in
       let fun_ctx =
-        append_ctx
-          ( ev_ce
-          :: marker
-          :: List.map (fun (lbl, tp) -> Context_var (lbl, tp)) r )
-          ctx'
+        append_ctx [ arg_ev_ce; ret_ev_ce; Context_var (var, arg_ev_tp)] ctx''
       in
-      let e_checked, new_ctx = check fun_ctx e ev_tp in
-      let fun_tp = Function (r, ev_tp) in
-      ( { Ast.Expr.expr = Function (r, e_checked); Ast.Expr.tp = fun_tp }
-      , drop_ctx_from marker new_ctx )
+      let e_checked, new_ctx = check fun_ctx e ret_ev_tp in
+      let fun_tp = Function (arg_ev_tp, ret_ev_tp) in
+      ( { Ast.Expr.expr = Function (var, e_checked); Ast.Expr.tp = fun_tp }
+      , drop_ctx_from (Context_var (var,arg_ev_tp)) new_ctx )
   (* ->E *)
-  | Ast.Expr.Application (e, r) ->
-      let e_inferred, new_ctx = infer ctx e in
-      let r_inferred, output_tp, new_ctx' =
-        infer_app new_ctx (apply_ctx new_ctx e_inferred.tp) r
+  | Ast.Expr.Application (e1, e2) ->
+      let e1_inferred, new_ctx = infer ctx e1 in
+      let e2_inferred, output_tp, new_ctx' =
+        infer_app new_ctx (apply_ctx new_ctx e1_inferred.tp) e2
       in
-      ({ expr = Application (e_inferred, r_inferred); tp = output_tp }, new_ctx')
+      ({ expr = Application (e1_inferred, e2_inferred); tp = output_tp }, new_ctx')
   (* TODO *)
   | Ast.Expr.Variant _ ->
       ({ expr = Ast.Expr.Variant ("", []); tp = Variant () }, ctx)
@@ -325,30 +336,17 @@ and check ctx annotated tp =
   let open Ast in
   match (annotated.expr, tp) with
   (* forall I *)
-  | _, Type.Forall (tv, tp') ->
+  | _, Forall (tv, tp') ->
       let ctx' = append_ctx [ Context_tvar tv ] ctx in
       let checked_e, new_ctx = check ctx' annotated tp' in
-      ( { checked_e with tp = Type.Forall (tv, checked_e.tp) }
+      ( { checked_e with tp = Forall (tv, checked_e.tp) }
       , drop_ctx_from (Context_tvar tv) new_ctx )
   (* -> I *)
-  | Function (r1, e), Type.Function (r2, return_tp) ->
-      (* Hack: we create an evar we don't use so we can make a context marker out of it.
-         Maybe we should just support creating fresh context markers. *)
-      let _, ev_ce, ctx' =
-        fresh_evar @@ subsumes ctx (Type.Record r1) (Type.Record r2)
-      in
-      let marker = Context_marker ev_ce in
-      let fun_ctx =
-        append_ctx
-          ( Context_marker ev_ce
-          :: List.map (fun (l, t) -> Context_var (l, t)) r2 )
-          ctx'
-      in
+  | Expr.Function (var, e), Function (arg_tp, return_tp) ->
+      let fun_ctx = append_ctx [ Context_var (var,arg_tp) ] ctx in
       let checked_e, new_ctx = check fun_ctx e return_tp in
-      (* Should we stick with the type we're checking against or the declared type for the record input?
-         Right now we do the declared type. *)
-      ( { expr = Function (r1, checked_e); tp = Type.Function (r1, return_tp) }
-      , drop_ctx_from marker new_ctx )
+      ( { expr = Function (var, checked_e); tp = Function (arg_tp, return_tp) }
+      , drop_ctx_from ( Context_var (var, arg_tp)) new_ctx )
   (* Sub *)
   | _ ->
       let e_inferred, ctx' = infer ctx annotated in
@@ -358,77 +356,119 @@ and check ctx annotated tp =
       ({ e_inferred with tp }, new_ctx)
 
 
-and infer_app ctx tp args =
-  let open Ast in
+and infer_app ctx tp e1 =
   match tp with
   (* Forall App *)
-  | Type.Forall (tv, forall_inner) ->
-    let ev_tp, ev_ce, ctx' = fresh_evar ctx in
+  | Forall (tv, forall_inner) ->
+    let ev_tp, ev_ce, _, ctx' = fresh_evar ctx in
     let subst_ctx = append_ctx [ev_ce] ctx' in
     let subst_forall_inner = substitute tv ~replace_with:(ev_tp) forall_inner in
-    infer_app subst_ctx subst_forall_inner args
+    infer_app subst_ctx subst_forall_inner e1
   (* -> App *)
-  | Type.Function (arg_types, return_tp) ->
-    let checked_rcd, new_ctx = check ctx (Expr.Untyped.make_record args) (Type.Record arg_types) in
-    (match checked_rcd.expr with
-     | Expr.Record checked_args -> (checked_args, return_tp, new_ctx)
-     | _ -> failwith "infer_app: got non-record (this shouldn't happen)"
-    )
+  | Function (arg_tp, return_tp) ->
+    let checked_e1, new_ctx = check ctx e1 arg_tp in
+    (checked_e1, return_tp, new_ctx)
   (* EVar App *)
-  | Type.EVar ev -> ignore ev; failwith "infer_app: EVar app unimplemented"
+  | EVar ev ->
+    let arg_ev_tp, arg_ev_ce, _, ctx'  = fresh_evar ctx in
+    let ret_ev_tp, ret_ev_ce, _, ctx'' = fresh_evar ctx' in
+    (* The EVar should be unsovled if we find it, so it's safe to use 'Context_evar ev' *)
+    let inserted_ctx = insert_before_in_ctx (Context_evar ev) [arg_ev_ce; ret_ev_ce] ctx'' in
+    let solved_ctx   = solve_evar ev (Function (arg_ev_tp, ret_ev_tp)) inserted_ctx in
+    let checked_e1, new_ctx = check solved_ctx e1 arg_ev_tp in
+    (checked_e1, ret_ev_tp, new_ctx)
   | _ -> failwith "infer_app: Got unexpected type."
 
 and subsumes ctx tp1 tp2 =
-  let open Ast in
   match (tp1, tp2) with
   (* EVar *)
-  | Type.EVar ev1, Type.EVar ev2 when Int.(ev1 = ev2) -> ctx
+  | EVar ev1, EVar ev2 when Int.(ev1 = ev2) -> ctx
   (* TVar *)
-  | Type.TVar tv1, Type.TVar tv2 when String.(equal tv1 tv2) -> ctx
+  | TVar tv1, TVar tv2 when String.(equal tv1 tv2) -> ctx
   (* Forall L *)
-  | Type.Forall (tv, forall_inner), tp2 ->
-    let ev_tp, ev_ce, ctx' = fresh_evar ctx in
+  | Forall (tv, forall_inner), tp2 ->
+    let ev_tp, ev_ce, _, ctx' = fresh_evar ctx in
     let marker = Context_marker ev_ce in
     let subst_ctx = append_ctx [marker; ev_ce] ctx' in
     let subst_forall_inner = substitute tv ~replace_with:(ev_tp) forall_inner in
     subsumes subst_ctx subst_forall_inner tp2
     |> drop_ctx_from marker
   (* Forall R *)
-  | tp1, Type.Forall (tv, forall_inner) ->
+  | tp1, Forall (tv, forall_inner) ->
     let ctx' = append_ctx [Context_tvar tv] ctx in
     subsumes ctx' tp1 forall_inner
     |> drop_ctx_from (Context_tvar tv)
   (* -> *)
-  | Type.Function (r1, return_tp1), Type.Function(r2, return_tp2) ->
-    let ctx' = subsumes ctx (Type.Record r2) (Type.Record r1) in
+  | Function (arg_tp1, return_tp1), Function(arg_tp2, return_tp2) ->
+    let ctx' = subsumes ctx arg_tp2 arg_tp1 in
     subsumes ctx' (apply_ctx ctx' return_tp1) (apply_ctx ctx' return_tp2)
   (* Record *)
-  | Type.Record r1, Type.Record r2 ->
+  | Record r1, Record r2 ->
     ignore r1; ignore r2;
     failwith "subsumes: record unimplemented"
   (* InstantiateL *)
-  | Type.EVar ev1, tp2 -> instantiateL ctx ev1 tp2
+  | EVar ev1, tp2 -> instantiateL ctx ev1 tp2
   (* InstantiateR *)
-  | tp1, Type.EVar ev2 -> instantiateR ctx tp1 ev2
+  | tp1, EVar ev2 -> instantiateR ctx tp1 ev2
   | _ -> failwith "subsumes: unimplemented types"
 
 and instantiateL ctx ev tp =
-  let open Ast in
   match tp with
   (* InstLArr *)
-  | Type.Function (r, return_tp) -> ignore (r, return_tp); failwith "instantiateL: function unimplemented"
+  | Function (arg_tp, ret_tp) ->
+    let arg_ev_tp, arg_ev_ce, arg_ev, ctx'  = fresh_evar ctx in
+    let ret_ev_tp, ret_ev_ce, ret_ev, ctx'' = fresh_evar ctx' in
+    (* The EVar should be unsovled if we find it, so it's safe to use 'Context_evar ev' *)
+    let inserted_ctx = insert_before_in_ctx (Context_evar ev) [arg_ev_ce; ret_ev_ce] ctx'' in
+    let solved_ctx   = solve_evar ev (Function (arg_ev_tp, ret_ev_tp)) inserted_ctx in
+    let new_ctx = instantiateR solved_ctx arg_tp arg_ev in
+    instantiateL new_ctx ret_ev (apply_ctx new_ctx ret_tp)
   (* InstLReach *)
-  | Type.EVar ev2 -> instantiateReach ctx ev ev2
+  | EVar ev2 -> instantiateReach ctx ev ev2
   (* InstLRcd *)
-  | Type.Record r -> ignore r; failwith "instantiateL: record unimplemented"
+  | Record r -> ignore r; failwith "instantiateL: record unimplemented"
   (* InstLAllR *)
-  | Type.Forall (tv, forall_inner) ->
+  | Forall (tv, forall_inner) ->
     let ctx' = append_ctx [Context_tvar tv] ctx in
     instantiateL ctx' ev forall_inner
     |> drop_ctx_from (Context_tvar tv)
-  | _ -> failwith "dead"
+  | _ -> failwith "instantiateL: unimplemented"
 
-and instantiateR ctx tp ev = ignore (ctx, tp, ev); failwith "instantiateR: unimplemented"
+and instantiateR ctx tp ev =
+  match tp with
+  (* InstLArr *)
+  | Function (arg_tp, ret_tp) ->
+    let arg_ev_tp, arg_ev_ce, arg_ev, ctx'  = fresh_evar ctx in
+    let ret_ev_tp, ret_ev_ce, ret_ev, ctx'' = fresh_evar ctx' in
+    (* The EVar should be unsovled if we find it, so it's safe to use 'Context_evar ev' *)
+    let inserted_ctx = insert_before_in_ctx (Context_evar ev) [arg_ev_ce; ret_ev_ce] ctx'' in
+    let solved_ctx   = solve_evar ev (Function (arg_ev_tp, ret_ev_tp)) inserted_ctx in
+    let new_ctx = instantiateL solved_ctx arg_ev arg_tp in
+    instantiateR new_ctx (apply_ctx new_ctx ret_tp) ret_ev
+  (* InstLReach *)
+  | EVar ev2 -> instantiateReach ctx ev ev2
+  (* InstLRcd *)
+  | Record r -> ignore r; failwith "instantiateR: record unimplemented"
+  (* InstLAllR *)
+  | Forall (tv, forall_inner) ->
+    let forall_ev_tp, forall_ev_ce, _, ctx' = fresh_evar ctx in
+    let ctx'' = append_ctx [Context_marker forall_ev_ce; forall_ev_ce] ctx' in
+    instantiateR ctx'' (substitute tv ~replace_with:forall_ev_tp forall_inner) ev
+    |> drop_ctx_from (Context_marker forall_ev_ce)
+  | _ -> failwith "instantiateR: unimplemented"
 
 (* find where ev1 and ev2 are located in the context. Assign the later one to the earlier one.*)
-and instantiateReach ctx ev1 ev2 = ignore (ctx, ev1, ev2); failwith "instantiateReach: unimplemented"
+and instantiateReach ctx ev1 ev2 =
+  let find_ev ev = List.find_idx
+     (function Context_evar ev' when Int.(ev=ev') -> true
+      | _ -> false)
+     ctx.context in
+  let ev1_index = find_ev ev1 in
+  let ev2_index = find_ev ev2 in
+  match (ev1_index, ev2_index) with
+  | Some (ev1_i, _), Some (ev2_i, _)->
+    if ev1_i <= ev2_i
+    then solve_evar ev2 (EVar ev1) ctx
+    else solve_evar ev1 (EVar ev2) ctx
+  | _ ->
+    failwith "instantiateReach: evar not in context."

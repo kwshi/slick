@@ -68,8 +68,8 @@ record_expr_entry:
   | k = LOWER_IDENT; EQUALS; v = expr { (k, v) }
 
 function_expr:
-  | BACKSLASH; r = record_type; ARROW; e = expr { Expr.make_function r e }
+  | BACKSLASH; v = LOWER_IDENT; ARROW; e = expr { Expr.make_function v e }
 
 function_app:
-  | f = atomic_expr; r = record_expr { Expr.make_application f r }
+  | f = atomic_expr; e = atomic_expr { Expr.make_application f e }
 

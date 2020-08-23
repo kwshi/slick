@@ -21,8 +21,8 @@ end
 
 module Expr = struct
   type 't raw_expr =
-    | Function of (Type.record * 't)
-    | Application of ('t * 't record)
+    | Function of (var_name * 't)
+    | Application of ('t * 't)
     | Record of 't record
     | Variant of (string * 't record)
     | Var of var_name
@@ -43,7 +43,7 @@ module Expr = struct
 
     let make expr = { tp = (); expr }
 
-    let make_function r e = make @@ Function (r, e)
+    let make_function v e = make @@ Function (v, e)
 
     let make_application e1 e2 = make @@ Application (e1, e2)
 
