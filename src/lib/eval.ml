@@ -26,6 +26,7 @@ let rec pp_value ppf value =
 
 
 let rec evaluate _ctx _annotated = failwith "dead"
+
 (* let rec evaluate ctx annotated =
  *   let open Ast.Expr in
  *   match annotated.expr with
@@ -46,6 +47,4 @@ let rec evaluate _ctx _annotated = failwith "dead"
  *       Value_variant (s, evaluate_record ctx r)
  *   | Var s ->
  *       LookupTable.find s ctx.lookup_table *)
-
-
 and evaluate_record ctx = List.map (Pair.map2 (evaluate ctx))
