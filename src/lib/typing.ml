@@ -226,12 +226,15 @@ let insert_before_in_ctx ce ces =
   (* TODO (maybe) use tail-recursive fold_left followed by List.rev to save
      memory, but that's sort of an unnecessary optimization *)
   over_context
-  @@ List.flat_map
-       (fun ce' ->
-         ( if Stdlib.(ce' = ce) (* TODO get rid of polymorphic comparison *)
+  @@ fun l ->
+  List.fold_right
+    (fun ce' acc ->
+       ( print_endline @@ string_of_bool Stdlib.(ce' = ce); if Stdlib.(ce' = ce) (* TODO get rid of polymorphic comparison *)
          then ces
          else [] )
-         @ [ce'])
+       @ (ce' :: acc))
+    l
+    []
 
 let append_ctx ces = over_context @@ fun context -> List.append context ces
 
