@@ -258,11 +258,24 @@ let insert_before_in_ctx ce ces =
   (* TODO (maybe) use tail-recursive fold_left followed by List.rev to save
      memory, but that's sort of an unnecessary optimization *)
   over_context
+<<<<<<< HEAD
   @@ List.flat_map (fun ce' ->
          ( if Stdlib.(ce' = ce) (* TODO get rid of polymorphic comparison *)
          then ces
          else [] )
          @ [ ce' ])
+=======
+  @@ fun l ->
+  List.fold_right
+    (fun ce' acc ->
+      ( print_endline @@ string_of_bool Stdlib.(ce' = ce) ;
+        if Stdlib.(ce' = ce) (* TODO get rid of polymorphic comparison *)
+        then ces
+        else [] )
+      @ (ce' :: acc))
+    l
+    []
+>>>>>>> origin/master
 
 
 let append_ctx ces = over_context @@ fun context -> List.append context ces
@@ -439,6 +452,7 @@ and check ctx annotated tp =
       let e_inferred, ctx' = infer ctx annotated in
       let e_inferred' = apply_ctx_expr ctx' e_inferred in
       let new_ctx = subsumes ctx' e_inferred'.tp (apply_ctx ctx' tp) in
+      (* do we do { e_inferred with tp } ? *)
       (e_inferred', new_ctx)
 
 
