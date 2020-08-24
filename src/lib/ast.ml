@@ -16,6 +16,7 @@ module Type = struct
     | Variant of unit (* TODO *)
     | Function of (record * t)
   [@@deriving show]
+
   and record = (string * t) list [@@deriving show]
 end
 
