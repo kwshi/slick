@@ -151,6 +151,19 @@ let drop_ctx_from ce =
   in
   if found then ctx' else failwith "drop_ctx_from not found"
 
+(* Parallel to drop_ctx_from. Still removes the element queried. *)
+let get_ctx_after ce =
+  let rec go = function
+    | ce' :: ces when Stdlib.(ce' = ce) -> ces
+    | _ :: ces -> go ces
+    | [] -> []
+  in over_context go
+
+let free_evars ctx =
+  let match_evar = function
+    | Context_evar ev -> Some ev
+    | _ -> None
+  in List.filter_map match_evar ctx.context
 
 (* apply_ctx:
    takes in a context ctx and a type tp.
@@ -175,14 +188,14 @@ let apply_ctx ctx =
         ctx.context
         |> List.find_map (function
             | Context_evar_assignment (ev', t) when Int.(ev = ev') ->
-              Some t
+              Some (go t)
             | _ ->
               None)
         |> Option.get_or ~default:(EVar ev)
     | Forall (tv, tp) ->
         Forall (tv, go tp)
     | t ->
-      t 
+      t
   and row (l, t) =
     let l' = List.map (Pair.map2 go) l in
     match t with
@@ -190,6 +203,7 @@ let apply_ctx ctx =
       ctx.context
       |> List.find_map (function
           | Context_row_evar_assignment (ev', r) when Int.(ev = ev') ->
+(* TODO recursively apply context to the row here *)
             Some r
           | _ ->
             None
@@ -292,12 +306,41 @@ let substitute tv ~replace_with =
   in
   go
 
+(* could take a list as input to avoid multiple traversals *)
+
+let substitute_evar ev ~replace_with =
+  let rec go = function
+    | Record r ->
+        Record (Pair.map1 (List.map @@ Pair.map2 go) r)
+    | Variant () ->
+        Variant ()
+    | Function (t1, t2) ->
+        Function (go t1, go t2)
+    | EVar ev' ->
+      if Int.(ev' = ev)
+        then replace_with
+        else EVar ev
+    | TVar tv ->
+        TVar tv
+    | Forall (tv, tp) -> Forall (tv, go tp)
+  in
+  go
+
+(* quantifies over all the given evars *)
+
+let quantify (evars : int list) (tp : t) : t =
+  let quantify_single ev tp =
+    let tv = "a" ^ Int.to_string ev in
+    Forall (tv, substitute_evar ev ~replace_with:(TVar tv) tp) in
+  List.fold_right quantify_single evars tp
+
 
 (* INFERENCE and CHECKING *)
 
 let rec infer_top ctx annotated =
   let inferred, new_ctx = infer ctx annotated in
-  (apply_ctx_expr new_ctx inferred, new_ctx)
+  let resolved = apply_ctx_expr new_ctx inferred in
+  ({resolved with tp = quantify (free_evars new_ctx) resolved.tp}, new_ctx)
 
 and infer ctx (annotated : Ast.Expr.Untyped.t) : t Ast.Expr.t * context=
   match annotated.Ast.Expr.expr with
@@ -324,15 +367,15 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : t Ast.Expr.t * context=
   | Ast.Expr.Function (var, e) ->
       let arg_ev_tp, arg_ev_ce, _, ctx' = fresh_evar ctx in
       let ret_ev_tp, ret_ev_ce, _, ctx'' = fresh_evar ctx' in
-      (* The context marker is added to make it possible to drop from the context even if no vars are added
-         I just use ev_ce since it's available. *)
+      let marker = Context_marker arg_ev_ce in
       let fun_ctx =
-        append_ctx [ arg_ev_ce; ret_ev_ce; Context_var (var, arg_ev_tp)] ctx''
+        append_ctx [ marker; arg_ev_ce; ret_ev_ce; Context_var (var, arg_ev_tp)] ctx''
       in
       let e_checked, new_ctx = check fun_ctx e ret_ev_tp in
-      let fun_tp = Function (arg_ev_tp, ret_ev_tp) in
-      ( { Ast.Expr.expr = Function (var, e_checked); Ast.Expr.tp = fun_tp }
-      , drop_ctx_from (Context_var (var,arg_ev_tp)) new_ctx )
+      let fun_expr = apply_ctx_expr new_ctx {Ast.Expr.expr = Ast.Expr.Function (var, e_checked); Ast.Expr.tp = Function (arg_ev_tp, ret_ev_tp)} in
+      let unquantified_evs = free_evars @@ get_ctx_after marker new_ctx in
+      let quantified_fun_expr = { fun_expr with tp = quantify unquantified_evs fun_expr.tp } in
+      ( quantified_fun_expr, drop_ctx_from marker new_ctx )
   (* ->E *)
   | Ast.Expr.Application (e1, e2) ->
       let e1_inferred, new_ctx = infer ctx e1 in
@@ -368,7 +411,7 @@ and check ctx annotated tp =
       let new_ctx =
         subsumes ctx' e_inferred'.tp (apply_ctx ctx' tp)
       in
-      ({ e_inferred' with tp }, new_ctx)
+      (e_inferred', new_ctx)
 
 
 and infer_app ctx tp e1 =
