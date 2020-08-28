@@ -3,6 +3,7 @@ open Fun
 
 (* module LookupTable = Map.Make (String)
  * module UVarTable = Map.Make (Int) *)
+module RowMap = Map.Make (String)
 
 type var_name = string
 
@@ -38,6 +39,14 @@ type context_element =
   | Context_row_evar_assignment of int * row
   | Context_marker of context_element
 [@@deriving show]
+
+let row_map_difference m1 m2 = RowMap.filter (fun l _ -> RowMap.find_opt l m2 |> Option.is_none) m1
+
+let row_map_zip =
+  let f _ a_opt b_opt = match (a_opt, b_opt) with
+    | (Some a, Some b) -> Some (a,b)
+    | _ -> None
+  in RowMap.merge f
 
 let map_row f = Pair.map1 (List.map (Pair.map2 f))
 
@@ -261,8 +270,7 @@ let insert_before_in_ctx ce ces =
   @@ fun l ->
   List.fold_right
     (fun ce' acc ->
-      ( print_endline @@ string_of_bool Stdlib.(ce' = ce) ;
-        if Stdlib.(ce' = ce) (* TODO get rid of polymorphic comparison *)
+      (if Stdlib.(ce' = ce) (* TODO get rid of polymorphic comparison *)
         then ces
         else [] )
       @ (ce' :: acc))
@@ -501,10 +509,15 @@ and subsumes ctx tp1 tp2 =
       let ctx' = subsumes ctx arg_tp2 arg_tp1 in
       subsumes ctx' (apply_ctx ctx' return_tp1) (apply_ctx ctx' return_tp2)
   (* Record *)
-  | Record r1, Record r2 ->
-      ignore r1 ;
-      ignore r2 ;
-      failwith "subsumes: record unimplemented"
+  | Record (r1, tail1), Record (r2, tail2) ->
+      let map1 = RowMap.of_list(r1) in
+      let map2 = RowMap.of_list(r2) in
+      (* Check that the matching labels' types subsume each other *)
+      let ctx' = RowMap.fold (fun _ (t1, t2) ctx -> subsumes ctx t1 t2) (row_map_zip map1 map2) ctx in
+      let missingFrom1 = RowMap.to_list @@ row_map_difference map2 map1 in
+      let missingFrom2 = RowMap.to_list @@ row_map_difference map1 map2 in
+      (* Deal with the parts that are missing *)
+      row_tail_subsumes ctx' tail1 missingFrom1 tail2 missingFrom2
   (* InstantiateL *)
   | EVar ev1, tp2 ->
       instantiateL ctx ev1 tp2
@@ -534,9 +547,14 @@ and instantiateL ctx ev tp =
   | EVar ev2 ->
       instantiateReach ctx ev ev2
   (* InstLRcd *)
-  | Record r ->
-      ignore r ;
-      failwith "instantiateL: record unimplemented"
+  | Record (r, rt) ->
+    let make_fresh_evars lst ctx = List.fold_right (fun _ (ev_tps, ev_ces, evs, ctx) -> let (ev_tp, ev_ce, ev, ctx') = fresh_evar ctx in (ev_tp :: ev_tps, ev_ce :: ev_ces, ev :: evs, ctx')) lst ([], [], [], ctx) in
+    let (fresh_evar_tps, fresh_evar_ces, fresh_evs, ctx1) = make_fresh_evars r ctx in
+    let (fresh_rt, fresh_rt_ce, _, ctx2) = fresh_row_evar ctx1 in
+    let ctx3 = insert_before_in_ctx (Context_evar ev) (fresh_evar_ces @ [fresh_rt_ce]) ctx2 in
+    let ctx4 = List.fold_right2 (fun (_, tp) ev ctx -> instantiateL ctx ev tp ) r fresh_evs ctx3 in
+    let ctx5 = solve_evar ev (Record (List.map2 (fun (lbl, _) ev_tp -> (lbl, ev_tp)) r fresh_evar_tps, Some fresh_rt)) ctx4 in
+    row_tail_subsumes ctx5 (Some fresh_rt) [] rt []
   (* InstLAllR *)
   | Forall (tv, forall_inner) ->
       let ctx' = append_ctx [ Context_tvar tv ] ctx in
@@ -564,9 +582,14 @@ and instantiateR ctx tp ev =
   | EVar ev2 ->
       instantiateReach ctx ev ev2
   (* InstRRcd *)
-  | Record r ->
-      ignore r ;
-      failwith "instantiateR: record unimplemented"
+  | Record (r, rt) ->
+    let make_fresh_evars lst ctx = List.fold_right (fun _ (ev_tps, ev_ces, evs, ctx) -> let (ev_tp, ev_ce, ev, ctx') = fresh_evar ctx in (ev_tp :: ev_tps, ev_ce :: ev_ces, ev :: evs, ctx')) lst ([], [], [], ctx) in
+    let (fresh_evar_tps, fresh_evar_ces, fresh_evs, ctx1) = make_fresh_evars r ctx in
+    let (fresh_rt, fresh_rt_ce, _, ctx2) = fresh_row_evar ctx1 in
+    let ctx3 = insert_before_in_ctx (Context_evar ev) (fresh_evar_ces @ [fresh_rt_ce]) ctx2 in
+    let ctx4 = List.fold_right2 (fun (_, tp) ev ctx -> instantiateR ctx tp ev) r fresh_evs ctx3 in
+    let ctx5 = solve_evar ev (Record (List.map2 (fun (lbl, _) ev_tp -> (lbl, ev_tp)) r fresh_evar_tps, Some fresh_rt)) ctx4 in
+    row_tail_subsumes ctx5 (Some fresh_rt) [] rt []
   (* InstRAllL *)
   | Forall (tv, forall_inner) ->
       let forall_ev_tp, forall_ev_ce, _, ctx' = fresh_evar ctx in
@@ -605,8 +628,49 @@ and instantiateReach ctx ev1 ev2 =
           ev1_index
       ^ " "
       ^ Option.map_or
-          ~default:"ev1 not in context"
+          ~default:"ev2 not in context"
           (fst %> Int.to_string)
           ev2_index
       ^ " "
       ^ List.to_string show_context_element ctx.context
+
+
+and row_tail_subsumes ctx tail1 missingFrom1 tail2 missingFrom2 =
+  match (tail1, missingFrom1, tail2, missingFrom2) with
+    | (Some (Tail_tvar tv1), [], Some (Tail_tvar tv2), []) when String.(equal tv1 tv2) -> ctx
+    | (Some (Tail_evar ev1), _, Some (Tail_evar ev2), _) -> row_tail_subsumes_ev ctx ev1 missingFrom1 ev2 missingFrom2
+    (* The second tail must not be an evar otherwise the reach case would match, thus it must have no missing elements to add to it.  *)
+    | (Some (Tail_evar ev1), _, _, []) -> solve_row_evar ev1 (missingFrom1, tail2) ctx
+
+    (* The first tail must not be an evar otherwise the reach case would match, thus it must have no missing elements to add to it. *)
+    | (_, [], Some (Tail_evar ev2), _) ->  solve_row_evar ev2 (missingFrom2, tail1) ctx
+    | _ -> failwith "row_tail_subsumes: invalid case"
+
+and row_tail_subsumes_ev ctx ev1 missingFrom1 ev2 missingFrom2 =
+  let make_fresh_evars lst ctx = List.fold_right (fun _ (ev_tps, ev_ces, evs, ctx) -> let (ev_tp, ev_ce, ev, ctx') = fresh_evar ctx in (ev_tp :: ev_tps, ev_ce :: ev_ces, ev :: evs, ctx')) lst ([], [], [], ctx) in
+  let (fresh_evars1, fresh_evars1_ces, fresh_evs1, ctx1) = make_fresh_evars missingFrom1 ctx in
+  let (fresh_evars2, fresh_evars2_ces, fresh_evs2, ctx2) = make_fresh_evars missingFrom2 ctx1 in
+  let (fresh_rt1, fresh_rt1_ce, fresh_rev1, ctx3) = fresh_row_evar ctx2 in
+  let (fresh_rt2, fresh_rt2_ce, fresh_rev2, ctx4) = fresh_row_evar ctx3 in
+  let ctx5 = insert_before_in_ctx (Context_row_evar ev1) (fresh_evars1_ces @ [fresh_rt1_ce]) ctx4
+    |> insert_before_in_ctx (Context_row_evar ev2) (fresh_evars2_ces @ [fresh_rt2_ce]) in
+  let ctx6 = solve_row_evar ev1 (List.map2 (fun (lbl, _) ev_tp -> (lbl, ev_tp)) missingFrom1 fresh_evars1, Some fresh_rt1) ctx5 in
+  let ctx7 = solve_row_evar ev2 (List.map2 (fun (lbl, _) ev_tp -> (lbl, ev_tp)) missingFrom2 fresh_evars2, Some fresh_rt2) ctx6 in
+  let ctx8 = List.fold_right2 (fun (_, tp) ev ctx -> instantiateL ctx ev tp ) missingFrom1 fresh_evs1 ctx7 in
+  let ctx9 = List.fold_right2 (fun (_, tp) ev ctx -> instantiateR ctx tp ev ) missingFrom2 fresh_evs2 ctx8 in
+  row_tail_reach ctx9 fresh_rev1 fresh_rev2
+
+and row_tail_reach ctx ev1 ev2 =
+  let find_ev ev =
+    List.find_idx
+      (function Context_row_evar ev' -> Int.(ev = ev') | _ -> false)
+      ctx.context
+  in
+  let ev1_index = find_ev ev1 in
+  let ev2_index = find_ev ev2 in
+  match (ev1_index, ev2_index) with
+  | Some (ev1_i, _), Some (ev2_i, _) ->
+      if ev1_i <= ev2_i
+      then solve_row_evar ev2 ([], Some (Tail_evar ev1)) ctx
+      else solve_row_evar ev1 ([], Some (Tail_evar ev2)) ctx
+  | _ -> failwith "row_tail_reach: row evar not in context."
