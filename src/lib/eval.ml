@@ -1,31 +1,47 @@
 open Containers
-module LookupTable = Map.Make (String)
+
+module Scope = Map.Make(String)
 
 type var_name = string
 
-type value =
-  | Value_record of (string * value) list
-  | Value_function of (value -> value)
-  | Value_variant of string * (string * value) list
-
-and context = { lookup_table : value LookupTable.t }
+type t =
+  | Record of (string * t) list
+  | Function of (t -> t)
+  | Variant of string * (string * t) list
 
 let rec pp_value ppf value =
   let open CCFormat in
   ( match value with
-  | Value_record r ->
+  | Record r ->
       list ~sep:(return ",@ ") (pair ~sep:(return "=") string pp_value)
       |> within "{" "}"
       |> Fun.flip const r
-  | Value_function _ ->
+  | Function _ ->
       return "<function>"
-  | Value_variant _ ->
+  | Variant _ ->
       return "var" )
     ppf
     ()
 
 
-let rec evaluate _ctx _annotated = failwith "dead"
+let rec evaluate (sc : t Scope.t) expr =
+  match expr.Ast.Expr.expr with
+  | Assign (v, e, b) ->
+    evaluate (Scope.add v (evaluate sc e) sc) b
+  | Function (v, e) ->
+    Function (fun value -> evaluate (Scope.add v value sc) e)
+  | Application (f, e) ->
+    (match evaluate sc f with
+     | Function f' -> f' (evaluate sc e)
+     | _ -> assert false
+    )
+  | Record r ->
+    Record (r |> List.map @@ Pair.map2 @@ evaluate sc)
+  | Variant (v, r) ->
+    Variant (v, r |> List.map @@ Pair.map2 @@ evaluate sc)
+  | Var v ->
+    Scope.find v sc
+    
 
 (* let rec evaluate ctx annotated =
  *   let open Ast.Expr in
