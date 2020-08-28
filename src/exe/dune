@@ -1,11 +1,4 @@
 (executable
- (name parsetest)
- (modules parsetest)
- (public_name slick_parsetest)
- (libraries containers slick))
-
-(executable
  (name sli)
- (modules sli)
  (public_name sli)
  (libraries containers slick))
