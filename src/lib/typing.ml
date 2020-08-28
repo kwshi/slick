@@ -25,7 +25,6 @@ type t =
   | TVar of var_name
   | Forall of var_name * t
 [@@deriving show]
-
 and row = (label * t) list * tail option [@@deriving show]
 
 let pp_tail ppf =
