@@ -9,19 +9,23 @@ type t =
   | Function of (t -> t)
   | Variant of string * (string * t) list
 
-let rec pp_value ppf value =
-  let open CCFormat in
+let rec pp ppf value =
+  let open Fmt in
   ( match value with
-  | Record r ->
-      list ~sep:(return ",@ ") (pair ~sep:(return "=") string pp_value)
-      |> within "{" "}"
-      |> Fun.flip const r
-  | Function _ ->
-      return "<function>"
-  | Variant _ ->
-      return "var" )
+    | Record r ->
+      const pp_record r
+    | Function _ ->
+      any "<function>"
+    | Variant (v, r) ->
+      const string v ++ const pp_record r
+  )
     ppf
     ()
+and pp_record ppf =
+  let open Format in
+  (list ~sep:(return ",@ ") (pair ~sep:(return "=") string pp)
+   |> within "{" "}"
+  ) ppf
 
 
 let rec evaluate (sc : t Scope.t) expr =

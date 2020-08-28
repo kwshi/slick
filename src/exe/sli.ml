@@ -9,8 +9,8 @@ let () =
       |> Slick.Typing.infer_top Slick.Typing.empty_ctx
     in
     Fmt.(hbox (any "type:@ " ++ Slick.Typing.pp)) Format.stdout expr.Slick.Ast.Expr.tp
-  ; (*Slick.Eval.evaluate
-      {Slick.Eval.lookup_table = Slick.Eval.LookupTable.empty}
-      |> Fmt.(any "val:@ " ++ Slick.Ast.Eval.pp) Format.stdout ;*)
+  ; Format.pp_print_newline Format.stdout () 
+  ; Slick.Eval.evaluate Slick.Eval.Scope.empty expr
+    |> Fmt.(hbox (any "val:@ " ++ Slick.Ast.Eval.pp)) Format.stdout 
   ; Format.pp_print_newline Format.stdout () 
   done
