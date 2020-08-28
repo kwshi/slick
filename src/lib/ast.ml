@@ -22,6 +22,7 @@ end
 
 module Expr = struct
   type 't raw_expr =
+    | Assign of var_name * 't * 't
     | Function of (var_name * 't)
     | Application of ('t * 't)
     | Record of 't record
@@ -55,3 +56,4 @@ module Expr = struct
     let make_var v = make @@ Var v
   end
 end
+

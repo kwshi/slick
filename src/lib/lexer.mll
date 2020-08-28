@@ -31,6 +31,7 @@ rule read =
   | "}" { RBRACE }
   | ":" { COLON }
   | "=" { EQUALS }
+  | ":=" { WALRUS }
   | "," { COMMA }
   | lower_ident { LOWER_IDENT (Lexing.lexeme lexbuf) }
   | upper_ident { UPPER_IDENT (Lexing.lexeme lexbuf) }
