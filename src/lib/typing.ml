@@ -28,6 +28,40 @@ type t =
 
 and row = (label * t) list * tail option [@@deriving show]
 
+let pp_tail ppf =
+  let open Fmt in
+  function
+  | Tail_evar ev ->
+    int ppf ev
+  | Tail_tvar tv ->
+    string ppf tv
+
+let rec pp ppf t =
+  let open Fmt in
+  (match t with
+  | Record r ->
+    const pp_row r
+  | Variant () ->
+    any "variant"
+  | Function (a, b) ->
+    const pp a ++ any "@ ->@ " ++ const pp b
+  | EVar ev ->
+    any "e" ++ const int ev
+  | TVar tv ->
+    const string tv
+  | Forall (a, e) ->
+    any "forall@ " ++ const string a ++ any ".@ " ++ const pp e
+  ) ppf ()
+and pp_row ppf =
+  let open Fmt in
+  (any "{"
+   ++ pair
+     (list ~sep:comma (pair ~sep:(any ":@ ") string pp))
+     (option pp_tail)
+   ++ any "}"
+  ) ppf
+
+
 type context_element =
   | Context_var of string * t (* Ast.var_name instead of string? *)
   | Context_row_evar of int
