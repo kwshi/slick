@@ -25,6 +25,7 @@ type t =
   | EVar of int
   | TVar of var_name
   | Forall of var_name * t
+  | ForallRow of var_name * t
 [@@deriving show]
 and row = (label * t) list * tail option [@@deriving show]
 
@@ -51,6 +52,8 @@ let rec pp ppf t =
     const string tv
   | Forall (a, e) ->
     any "forall@ " ++ const string a ++ any ".@ " ++ const pp e
+  | ForallRow (a, e) ->
+    any "forall_row@ " ++ const string a ++ any ".@ " ++ const pp e
   ) ppf ()
 and pp_row ppf =
   let open Fmt in
@@ -168,7 +171,10 @@ let solve_row_evar ev r =
       false
       ctx
   in
-  if found then ctx' else failwith "solve_row_evar not found"
+  if found
+    then ctx'
+    else (print_ctx {empty_ctx with context=ctx};
+         failwith @@ "solve_row_evar not found (" ^ Int.to_string ev ^ ")")
 
 
 let lookup_var v ctx =
@@ -224,6 +230,10 @@ let get_ctx_after ce =
 
 let free_evars ctx =
   let match_evar = function Context_evar ev -> Some ev | _ -> None in
+  List.filter_map match_evar ctx.context
+
+let free_row_evars ctx =
+  let match_evar = function Context_row_evar ev -> Some ev | _ -> None in
   List.filter_map match_evar ctx.context
 
 
@@ -379,12 +389,36 @@ let substitute tv ~replace_with =
         if String.(equal tv tv') then replace_with else TVar tv'
     | Forall (tv', tp) ->
         if String.(equal tv tv') then Forall (tv', tp) else Forall (tv', go tp)
+    | ForallRow (tv', tp) ->
+        if String.(equal tv tv') then ForallRow (tv', tp) else ForallRow (tv', go tp)
+  in
+  go
+
+
+let substitute_row tv ~replace_with =
+  let rec go = function
+    | Record (r,rt) ->
+        let rt' = match rt with
+          | Some (Tail_tvar tv') when String.(equal tv' tv) -> Some replace_with
+          | _ -> None
+        in Record ((List.map @@ Pair.map2 go) r, rt')
+    | Variant () ->
+        Variant ()
+    | Function (t1, t2) ->
+        Function (go t1, go t2)
+    | EVar ev ->
+        EVar ev
+    | TVar tv' ->
+        TVar tv'
+    | Forall (tv', tp) ->
+        if String.(equal tv tv') then Forall (tv', tp) else Forall (tv', go tp)
+    | ForallRow (tv', tp) ->
+        if String.(equal tv tv') then ForallRow (tv', tp) else ForallRow (tv', go tp)
   in
   go
 
 
 (* could take a list as input to avoid multiple traversals *)
-
 let substitute_evar ev ~replace_with =
   let rec go = function
     | Record r ->
@@ -402,6 +436,36 @@ let substitute_evar ev ~replace_with =
         should check if we're replacing with a TVar and avoid going into the
         body of the Forall if the TVars match. *)
         Forall (tv, go tp)
+    | ForallRow (tv, tp) ->
+        (* See above *)
+        ForallRow (tv, go tp)
+  in
+  go
+
+
+let substitute_row_evar ev ~replace_with =
+  let rec go = function
+    | Record (r, rt) ->
+        let rt' = match rt with
+          | Some (Tail_evar ev') when Int.(equal ev' ev) -> Some replace_with
+          | _ -> None
+        in Record ((List.map @@ Pair.map2 go) r, rt')
+    | Variant () ->
+        Variant ()
+    | Function (t1, t2) ->
+        Function (go t1, go t2)
+    | EVar ev' ->
+      EVar ev'
+    | TVar tv ->
+        TVar tv
+    | Forall (tv, tp) ->
+        (* It's probably OK since we make unique identifiers, but we probably
+        should check if we're replacing with a TVar and avoid going into the
+        body of the Forall if the TVars match. *)
+        Forall (tv, go tp)
+    | ForallRow (tv, tp) ->
+        (* See above *)
+        ForallRow (tv, go tp)
   in
   go
 
@@ -414,6 +478,18 @@ let quantify (evars : int list) (tp : t) : t =
     Forall (tv, substitute_evar ev ~replace_with:(TVar tv) tp')
   in
   List.fold_right quantify_single evars tp
+
+let quantify_row (row_evars : int list) (tp : t) : t =
+  let quantify_single ev tp' =
+    let tv = "a" ^ Int.to_string ev in
+    ForallRow (tv, substitute_row_evar ev ~replace_with:(Tail_tvar tv) tp')
+  in
+  List.fold_right quantify_single row_evars tp
+
+let quantify_all_free_evars ctx tp =
+  let fvs = free_evars ctx in
+  let row_fvs = free_row_evars ctx in
+  quantify_row row_fvs @@ quantify fvs tp
 
 
 (* INFERENCE and CHECKING *)
@@ -464,9 +540,8 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : t Ast.Expr.t * context =
           ; Ast.Expr.tp = Function (arg_ev_tp, ret_ev_tp)
           }
       in
-      let unquantified_evs = free_evars @@ get_ctx_after marker new_ctx in
       let quantified_fun_expr =
-        { fun_expr with tp = quantify unquantified_evs fun_expr.tp }
+        { fun_expr with tp = quantify_all_free_evars (get_ctx_after marker new_ctx) fun_expr.tp }
       in
       (quantified_fun_expr, drop_ctx_from marker new_ctx)
   (* ->E *)
@@ -510,6 +585,12 @@ and check ctx annotated tp =
       let checked_e, new_ctx = check ctx' annotated tp' in
       ( { checked_e with tp = Forall (tv, checked_e.tp) }
       , drop_ctx_from (Context_tvar tv) new_ctx )
+  (* forallRow I *)
+  | _, ForallRow (tv, tp') ->
+      let ctx' = append_ctx [ Context_row_tvar tv ] ctx in
+      let checked_e, new_ctx = check ctx' annotated tp' in
+      ( { checked_e with tp = ForallRow (tv, checked_e.tp) }
+      , drop_ctx_from (Context_row_tvar tv) new_ctx )
   (* -> I *)
   | Expr.Function (var, e), Function (arg_tp, return_tp) ->
       let fun_ctx = append_ctx [ Context_var (var, arg_tp) ] ctx in
@@ -532,6 +613,12 @@ and infer_app ctx tp e1 =
       let ev_tp, ev_ce, _, ctx' = fresh_evar ctx in
       let subst_ctx = append_ctx [ ev_ce ] ctx' in
       let subst_forall_inner = substitute tv ~replace_with:ev_tp forall_inner in
+      infer_app subst_ctx subst_forall_inner e1
+  (* Forall row App *)
+  | ForallRow (tv, forall_inner) ->
+      let ev_tail, ev_ce, _, ctx' = fresh_row_evar ctx in
+      let subst_ctx = append_ctx [ ev_ce ] ctx' in
+      let subst_forall_inner = substitute_row tv ~replace_with:ev_tail forall_inner in
       infer_app subst_ctx subst_forall_inner e1
   (* -> App *)
   | Function (arg_tp, return_tp) ->
@@ -561,6 +648,12 @@ and infer_proj ctx tp lbl =
     let ev_tp, ev_ce, _, ctx' = fresh_evar ctx in
     let subst_ctx = append_ctx [ ev_ce ] ctx' in
     let subst_forall_inner = substitute tv ~replace_with:ev_tp forall_inner in
+    infer_proj subst_ctx subst_forall_inner lbl
+  (* Forall Row Prj *)
+  | ForallRow (tv, forall_inner) ->
+    let ev_tail, ev_ce, _, ctx' = fresh_row_evar ctx in
+    let subst_ctx = append_ctx [ ev_ce ] ctx' in
+    let subst_forall_inner = substitute_row tv ~replace_with:ev_tail forall_inner in
     infer_proj subst_ctx subst_forall_inner lbl
   (* Rcd Prj *)
   | tp -> lookup_row ctx tp lbl
@@ -602,6 +695,11 @@ and infer_ext ctx rcd_head tp =
     let subst_ctx = append_ctx [ ev_ce ] ctx' in
     let subst_forall_inner = substitute tv ~replace_with:ev_tp forall_inner in
     infer_ext subst_ctx rcd_head subst_forall_inner
+  | ForallRow (tv, forall_inner) ->
+    let ev_tail, ev_ce, _, ctx' = fresh_row_evar ctx in
+    let subst_ctx = append_ctx [ ev_ce ] ctx' in
+    let subst_forall_inner = substitute_row tv ~replace_with:ev_tail forall_inner in
+    infer_ext subst_ctx rcd_head subst_forall_inner
   (* TODO Need to replace the label if it already exists *)
   | Record (r, rt) -> (Record (rcd_head :: r, rt), ctx)
   | EVar ev ->
@@ -628,10 +726,21 @@ and subsumes ctx tp1 tp2 =
       let subst_ctx = append_ctx [ marker; ev_ce ] ctx' in
       let subst_forall_inner = substitute tv ~replace_with:ev_tp forall_inner in
       subsumes subst_ctx subst_forall_inner tp2 |> drop_ctx_from marker
+  (* Forall Row L *)
+  | ForallRow (tv, forall_inner), tp2 ->
+      let ev_tail, ev_ce, _, ctx' = fresh_row_evar ctx in
+      let marker = Context_marker ev_ce in
+      let subst_ctx = append_ctx [ marker; ev_ce ] ctx' in
+      let subst_forall_inner = substitute_row tv ~replace_with:ev_tail forall_inner in
+      subsumes subst_ctx subst_forall_inner tp2 |> drop_ctx_from marker
   (* Forall R *)
   | tp1, Forall (tv, forall_inner) ->
       let ctx' = append_ctx [ Context_tvar tv ] ctx in
       subsumes ctx' tp1 forall_inner |> drop_ctx_from (Context_tvar tv)
+  (* Forall Row R *)
+  | tp1, ForallRow (tv, forall_inner) ->
+      let ctx' = append_ctx [ Context_row_tvar tv ] ctx in
+      subsumes ctx' tp1 forall_inner |> drop_ctx_from (Context_row_tvar tv)
   (* -> *)
   | Function (arg_tp1, return_tp1), Function (arg_tp2, return_tp2) ->
       let ctx' = subsumes ctx arg_tp2 arg_tp1 in
@@ -687,6 +796,10 @@ and instantiateL ctx ev tp =
   | Forall (tv, forall_inner) ->
       let ctx' = append_ctx [ Context_tvar tv ] ctx in
       instantiateL ctx' ev forall_inner |> drop_ctx_from (Context_tvar tv)
+  (* InstLAllRowR *)
+  | ForallRow (tv, forall_inner) ->
+      let ctx' = append_ctx [ Context_row_tvar tv ] ctx in
+      instantiateL ctx' ev forall_inner |> drop_ctx_from (Context_row_tvar tv)
   | _ ->
       failwith "instantiateL: unimplemented"
 
@@ -729,6 +842,17 @@ and instantiateR ctx tp ev =
         (substitute tv ~replace_with:forall_ev_tp forall_inner)
         ev
       |> drop_ctx_from (Context_marker forall_ev_ce)
+  (* InstRAllRowL*)
+  | ForallRow (tv, forall_inner) ->
+      let ev_tail, ev_ce, _, ctx' = fresh_row_evar ctx in
+      let ctx'' =
+        append_ctx [ Context_marker ev_ce; ev_ce ] ctx'
+      in
+      instantiateR
+        ctx''
+        (substitute_row tv ~replace_with:ev_tail forall_inner)
+        ev
+      |> drop_ctx_from (Context_marker ev_ce)
   | _ ->
       failwith "instantiateR: unimplemented"
 
