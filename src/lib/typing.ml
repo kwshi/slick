@@ -473,12 +473,16 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : t Ast.Expr.t * context =
   | Ast.Expr.Variant _ ->
       ({ expr = Ast.Expr.Variant ("", []); tp = Variant () }, ctx)
   | Ast.Expr.Assign (var, e1, e2) ->
-      (* check if var is in the context. if it is, check e1 against its type. otherwise, infer the type of e1 - and use that as var's assignment. *)
+      (* TODO for assignments that involve updates: check if var is in the context. if it is, check e1 against its type. otherwise, infer the type of e1 - and use that as var's assignment. *)
       let e1_inferred, new_ctx = infer ctx e1 in
       let e1_inferred' = apply_ctx_expr new_ctx e1_inferred in
       let assign_ctx = append_ctx [Context_var (var, e1_inferred'.tp)] new_ctx in
       let e2_inferred, new_ctx' = infer assign_ctx e2 in
       ( { expr = Ast.Expr.Assign (var, e1_inferred', e2_inferred); tp = e2_inferred.tp}, new_ctx')
+  | Ast.Expr.Projection (e, lbl) ->
+      let e_inferred, new_ctx = infer ctx e in
+      let proj_tp, proj_ctx = infer_proj new_ctx e_inferred.tp lbl in
+      ( { expr = Ast.Expr.Projection (e_inferred, lbl); tp = proj_tp}, proj_ctx)
   | _ -> failwith "infer: unimplemented"
 
 
@@ -533,6 +537,50 @@ and infer_app ctx tp e1 =
       (checked_e1, ret_ev_tp, new_ctx)
   | _ ->
       failwith "infer_app: Got unexpected type."
+
+
+and infer_proj ctx tp lbl =
+  match tp with
+  (* Forall Prj *)
+  | Forall (tv, forall_inner) ->
+    let ev_tp, ev_ce, _, ctx' = fresh_evar ctx in
+    let marker = Context_marker ev_ce in
+    let subst_ctx = append_ctx [ marker; ev_ce ] ctx' in
+    let subst_forall_inner = substitute tv ~replace_with:ev_tp forall_inner in
+    let proj_tp, proj_ctx = infer_proj subst_ctx subst_forall_inner lbl in
+    (proj_tp, drop_ctx_from marker proj_ctx)
+  (* Rcd Prj *)
+  | tp -> lookup_row ctx tp lbl
+
+
+and lookup_row ctx tp lbl =
+  match tp with
+  (* LookupRcd *)
+  | Record (r, rt) ->
+    (match List.find_map
+    (function (lbl', tp) when String.(equal lbl lbl') -> Some tp
+        | _ -> None
+    ) r with
+    | Some tp -> (tp, ctx)
+    | None ->
+      (match rt with
+      | Some (Tail_evar ev) ->
+        let fresh_rt, fresh_rt_ce, _, ctx1 = fresh_row_evar ctx in
+        let fresh_ev_tp, fresh_ev_ce, _, ctx2 = fresh_evar ctx1 in
+        let ctx3 = insert_before_in_ctx (Context_row_evar ev) [fresh_ev_ce; fresh_rt_ce] ctx2 in
+        let ctx4 = solve_row_evar ev ([(lbl, fresh_ev_tp)], Some fresh_rt) ctx3 in
+        (fresh_ev_tp, ctx4)
+      | _ -> failwith @@ "lookup_row: " ^ lbl ^ " not found."
+      )
+     )
+  (* LookupEVar *)
+  | EVar ev ->
+    let fresh_rt, fresh_rt_ce, _, ctx1 = fresh_row_evar ctx in
+    let fresh_ev_tp, fresh_ev_ce, _, ctx2 = fresh_evar ctx1 in
+    let ctx3 = insert_before_in_ctx (Context_row_evar ev) [fresh_ev_ce; fresh_rt_ce] ctx2 in
+    let ctx4 = solve_evar ev (Record ([(lbl, fresh_ev_tp)], Some fresh_rt)) ctx3 in
+    (fresh_ev_tp, ctx4)
+  | _ -> failwith "lookup_row: Got unexpected type."
 
 
 and subsumes ctx tp1 tp2 =
