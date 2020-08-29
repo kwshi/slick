@@ -23,8 +23,7 @@ end
               *)
 
 module Expr = struct
-  type literal =
-    | Int of Z.t
+  type literal = Int of Z.t
 
   type 't raw_expr =
     | Assign of var_name * 't * 't
@@ -37,7 +36,7 @@ module Expr = struct
     | Var of var_name
     | Literal of literal
 
-  and 'annotated_expr record = (label * 'annotated_expr) list 
+  and 'annotated_expr record = (label * 'annotated_expr) list
 
   and 'tp t =
     { tp : 'tp
@@ -72,4 +71,3 @@ module Expr = struct
     let make_literal l = make @@ Literal l
   end
 end
-
