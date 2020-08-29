@@ -30,6 +30,7 @@ rule read =
   | "{" { LBRACE }
   | "}" { RBRACE }
   | ":" { COLON }
+  | ";" { SEMICOLON }
   | "=" { EQUALS }
   | ":=" { WALRUS }
   | "," { COMMA }

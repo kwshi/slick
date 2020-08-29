@@ -3,6 +3,8 @@ open Containers
 
 module Expr = Ast.Expr.Untyped
 
+module Slick = struct end
+
 %}
 
 %token <string> LOWER_IDENT
