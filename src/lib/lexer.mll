@@ -30,10 +30,12 @@ rule read =
   | "{" { LBRACE }
   | "}" { RBRACE }
   | ":" { COLON }
+  | "|" { PIPE }
   | ";" { SEMICOLON }
   | "=" { EQUALS }
   | ":=" { WALRUS }
   | "," { COMMA }
+  | "." { DOT }
   | lower_ident { LOWER_IDENT (Lexing.lexeme lexbuf) }
   | upper_ident { UPPER_IDENT (Lexing.lexeme lexbuf) }
   | _ { raise (Ast.SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) } 

@@ -19,6 +19,8 @@ module Slick = struct end
 %token SEMICOLON
 %token COLON
 %token COMMA
+%token DOT
+%token PIPE
 %token WALRUS
 %token EOF
 
@@ -29,12 +31,15 @@ module Slick = struct end
 prog:
   | e = expr; EOF { e }
 
+(*
 type_:
   | r = record_type { Ast.Type.Record r }
   | f = function_type { Ast.Type.Function f }
 
 function_type:
   | r = record_type; ARROW; t = type_ { (r, t) }
+
+*)
 
 expr:
   | v = LOWER_IDENT; WALRUS; e = expr; SEMICOLON; b = expr { Expr.make_assign v e b }
@@ -47,6 +52,8 @@ atomic_expr:
   | LPAREN; e = expr; RPAREN { e }
   | r = record_expr { Expr.make_record r }
   | v = LOWER_IDENT { Expr.make_var v }
+  | r = atomic_expr; DOT; l = LOWER_IDENT { Expr.make_projection r l }
+  | LBRACE; e = expr; PIPE; l = comma_sequence(record_expr_entry) RBRACE { Expr.make_extensions e l }
 
 rev_comma_sequence(item):
   | { [] }
@@ -59,11 +66,14 @@ comma_sequence(item):
 brace_list(entry):
   | LBRACE; vs = comma_sequence(entry); RBRACE { vs }
 
+(* 
 record_type:
   | l = brace_list(record_type_entry) { l }
 
 record_type_entry:
   | k = LOWER_IDENT; COLON; t = type_ { (k, t) }
+
+*)
 
 record_expr:
   | l = brace_list(record_expr_entry) { l }

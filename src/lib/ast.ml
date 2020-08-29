@@ -53,6 +53,12 @@ module Expr = struct
 
     let make_record r = make @@ Record r
 
+    let make_projection r l = make @@ Projection (r, l)
+
+    let make_extension r (k, v) = make @@ Extension (k, v, r)
+
+    let make_extensions = List.fold_left make_extension
+
     let make_variant s r = make @@ Variant (s, r)
 
     let make_var v = make @@ Var v
