@@ -324,73 +324,73 @@ synthesizes output type \(C\) and context \(\ctxalt\).
 
 
 \[
-% \deduct[(\{\}I)]{}{\check{\ctx}{\{\}}{\{\}}{\ctx}}
-% \spc
+\deduct[(\{\}I)]{}{\check{\ctx}{\{\}}{\{\}}{\ctx}}
+\spc
 \deduct[(\{\}I\(\implies\))]{}{\synth{\ctx}{\{\}}{\{\}}{\ctx}}
 \]
 
 \[
-  % \deduct[(RcdI)]
-  % { \check{\ctx}{e}{A}{\ctxaltt} \spc \check{\ctxaltt}{\apply\ctxaltt \rcd {rcd}}{\apply\ctxaltt\row}{\ctxalt} }
-  % { \check{\ctx}{\{\lbl : e , rcd \}}{\{\lbl : A, \row\}}{\ctxalt} }
-  % \spc
+  \deduct[(RcdI)]
+  { \check{\ctx}{e}{A}{\ctxaltt} \spc \check{\ctxaltt}{\apply\ctxaltt \rcd {rcd}}{\apply\ctxaltt\row}{\ctxalt} }
+  { \check{\ctx}{\{\lbl : e , rcd \}}{\{\lbl : A, \row\}}{\ctxalt} }
+  \spc
   \deduct[(RcdI\(\implies\))]
   { \synth{\ctx}{e}{A}{\ctxaltt} \spc \synth{\ctxaltt}{\apply\ctxaltt \rcd
         {rcd}}{\apply\ctxaltt \row}{\ctxalt} }
   { \synth{\ctx}{\{\lbl : e , rcd \}}{\{\lbl : A, \row\}}{\ctxalt} }
 \]
 
-% \[
-%   \deduct[(Prj)]
-%   { \synth{\Gamma}{e}{A}{\Theta} \spc
-%     \presynth{\Theta}{\apply\Theta A}{\prj}{\lbl}{C}{\Delta}
-%   }
-%   { \synth{\Gamma}{e\#\lbl}{C}{\Delta} }
-%   \spc
-%   \deduct[(\(\forall\) Prj)]
-%   { \presynth{\Gamma, \ev\alpha}{A[\alpha := \ev\alpha]}{\prj}{\lbl}{C}{\Delta} }
-%   { \presynth{\Gamma}{\forall \alpha. A}{\prj}{\lbl}{C}{\Delta} }
-% \]
+\[
+  \deduct[(Prj)]
+  { \synth{\Gamma}{e}{A}{\Theta} \spc
+    \presynth{\Theta}{\apply\Theta A}{\prj}{\lbl}{C}{\Delta}
+  }
+  { \synth{\Gamma}{e\#\lbl}{C}{\Delta} }
+  \spc
+  \deduct[(\(\forall\) Prj)]
+  { \presynth{\Gamma, \ev\alpha}{A[\alpha := \ev\alpha]}{\prj}{\lbl}{C}{\Delta} }
+  { \presynth{\Gamma}{\forall \alpha. A}{\prj}{\lbl}{C}{\Delta} }
+\]
 
-% \[
-%   \deduct[(RcdPrjR)]
-%     { \lookup{\Gamma}{R}{l}{C}{\Delta} }
-%     { \presynth{\Gamma}{R}{\prj}{\lbl}{C}{\Delta} }
-% \]
+\[
+  \deduct[(RcdPrjR)]
+    { \lookup{\Gamma}{R}{l}{C}{\Delta} }
+    { \presynth{\Gamma}{R}{\prj}{\lbl}{C}{\Delta} }
+\]
 
-% \noindent
-% We define record lookup $\lookup{\Gamma}{\rho}{\lbl}{A}{\Delta}$ as follows (inputs: $\Gamma$, $\rho$, $l$; outputs: $A$, $\Delta$):
-% \[
-% \deduct[(lookupYes)]{}{\lookup{\Gamma}{\{\lbl : A, R\}}{\lbl}{A}{\Gamma}}
-% \spc
-% \deduct[(lookupNo)]
-%   {\lbl \neq \lbl' \spc \lookup{\Gamma}{\{R\}}{\lbl}{A}{\Delta}}
-%   {\lookup{\Gamma}{\{\lbl' : A', R\}}{\lbl}{A}{\Delta}}
-% \]
+\noindent
+We define record lookup $\lookup{\Gamma}{\rho}{\lbl}{A}{\Delta}$ as follows (inputs: $\Gamma$, $\rho$, $l$; outputs: $A$, $\Delta$):
+\[
+\deduct[(lookupYes)]{}{\lookup{\Gamma}{\{\lbl : A, R\}}{\lbl}{A}{\Gamma}}
+\spc
+\deduct[(lookupNo)]
+  {\lbl \neq \lbl' \spc \lookup{\Gamma}{\{R\}}{\lbl}{A}{\Delta}}
+  {\lookup{\Gamma}{\{\lbl' : A', R\}}{\lbl}{A}{\Delta}}
+\]
 
-% \[
-% \deduct[(Lookup \(\ev\alpha\))]
-%   { }
-%   { \lookup
-%       {\Gamma[\ev\alpha]}
-%       {\ev\alpha}
-%       {\lbl}
-%       {\ev\alpha_0}
-%       {\Gamma[\ev\alpha_0, \ev\alpha_1, \ev\alpha = \{\lbl : \ev\alpha_0, \ev\alpha_1\}] }
-%   }
-% \]
+\[
+\deduct[(Lookup \(\ev\alpha\))]
+  { }
+  { \lookup
+      {\Gamma[\ev\alpha]}
+      {\ev\alpha}
+      {\lbl}
+      {\ev\alpha_0}
+      {\Gamma[\ev\alpha_0, \ev\alpha_1, \ev\alpha = \{\lbl : \ev\alpha_0, \ev\alpha_1\}] }
+  }
+\]
 
-% \[
-% \deduct[(Lookup RowTail)]
-%   { }
-%   { \lookup
-%       {\Gamma[\ev\alpha]}
-%       {\{\ev\alpha\}}
-%       {\lbl}
-%       {\ev\alpha_0}
-%       {\Gamma[\ev\alpha_0, \ev\alpha_1, \ev\alpha = (\lbl : \ev\alpha_0, \ev\alpha_1)] }
-%   }
-% \]
+\[
+\deduct[(Lookup RowTail)]
+  { }
+  { \lookup
+      {\Gamma[\ev\alpha]}
+      {\{\ev\alpha\}}
+      {\lbl}
+      {\ev\alpha_0}
+      {\Gamma[\ev\alpha_0, \ev\alpha_1, \ev\alpha = (\lbl : \ev\alpha_0, \ev\alpha_1)] }
+  }
+\]
 
 \subsection{Subsumption}
 We define the algorithmic subsumption:

@@ -73,6 +73,9 @@ type context_element =
   | Context_marker of context_element
 [@@deriving show]
 
+
+(* Row functions *)
+
 let row_map_difference m1 m2 = RowMap.filter (fun l _ -> RowMap.find_opt l m2 |> Option.is_none) m1
 
 let row_map_zip =
@@ -94,6 +97,12 @@ type context =
   }
 
 let empty_ctx = { next_var = 0; context = [] }
+
+(* Debug functions *)
+
+let print_ctx (ctx : context) = print_string @@ List.to_string show_context_element ctx.context; print_newline ()
+
+let print_tp tp = pp Format.stdout tp; Format.print_newline ()
 
 (* Smart constructors for making fresh evars. Returns a tuple consisting of
   ( var as a type
@@ -385,10 +394,13 @@ let substitute_evar ev ~replace_with =
     | Function (t1, t2) ->
         Function (go t1, go t2)
     | EVar ev' ->
-        if Int.(ev' = ev) then replace_with else EVar ev
+        if Int.(ev' = ev) then replace_with else EVar ev'
     | TVar tv ->
         TVar tv
     | Forall (tv, tp) ->
+        (* It's probably OK since we make unique identifiers, but we probably
+        should check if we're replacing with a TVar and avoid going into the
+        body of the Forall if the TVars match. *)
         Forall (tv, go tp)
   in
   go
@@ -397,9 +409,9 @@ let substitute_evar ev ~replace_with =
 (* quantifies over all the given evars *)
 
 let quantify (evars : int list) (tp : t) : t =
-  let quantify_single ev tp =
+  let quantify_single ev tp' =
     let tv = "a" ^ Int.to_string ev in
-    Forall (tv, substitute_evar ev ~replace_with:(TVar tv) tp)
+    Forall (tv, substitute_evar ev ~replace_with:(TVar tv) tp')
   in
   List.fold_right quantify_single evars tp
 
@@ -470,13 +482,23 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : t Ast.Expr.t * context =
   | Ast.Expr.Variant _ ->
       ({ expr = Ast.Expr.Variant ("", []); tp = Variant () }, ctx)
   | Ast.Expr.Assign (var, e1, e2) ->
-      (* check if var is in the context. if it is, check e1 against its type. otherwise, infer the type of e1 - and use that as var's assignment. *)
+      (* TODO for assignments that involve updates: check if var is in the context. if it is, check e1 against its type. otherwise, infer the type of e1 - and use that as var's assignment. *)
       let e1_inferred, new_ctx = infer ctx e1 in
       let e1_inferred' = apply_ctx_expr new_ctx e1_inferred in
       let assign_ctx = append_ctx [Context_var (var, e1_inferred'.tp)] new_ctx in
       let e2_inferred, new_ctx' = infer assign_ctx e2 in
       ( { expr = Ast.Expr.Assign (var, e1_inferred', e2_inferred); tp = e2_inferred.tp}, new_ctx')
-  | _ -> failwith "infer: unimplemented"
+  | Ast.Expr.Projection (e, lbl) ->
+      let e_inferred, new_ctx = infer ctx e in
+      let e_inferred' = apply_ctx_expr new_ctx e_inferred in
+      let proj_tp, proj_ctx = infer_proj new_ctx e_inferred'.tp lbl in
+      ( { expr = Ast.Expr.Projection (e_inferred', lbl); tp = proj_tp}, proj_ctx)
+  | Ast.Expr.Extension (lbl, e1, e2) ->
+      let e1_inferred, new_ctx  = infer ctx e1 in
+      let e2_inferred, new_ctx' = infer new_ctx e2 in
+      let e2_inferred' = apply_ctx_expr new_ctx' e2_inferred in
+      let ext_tp, ext_ctx = infer_ext new_ctx' (lbl, e1_inferred.tp) e2_inferred'.tp in
+      ( { expr = Ast.Expr.Extension (lbl, e1_inferred, e2_inferred'); tp = ext_tp}, ext_ctx)
 
 
 and check ctx annotated tp =
@@ -531,6 +553,65 @@ and infer_app ctx tp e1 =
   | _ ->
       failwith "infer_app: Got unexpected type."
 
+
+and infer_proj ctx tp lbl =
+  match tp with
+  (* Forall Prj *)
+  | Forall (tv, forall_inner) ->
+    let ev_tp, ev_ce, _, ctx' = fresh_evar ctx in
+    let subst_ctx = append_ctx [ ev_ce ] ctx' in
+    let subst_forall_inner = substitute tv ~replace_with:ev_tp forall_inner in
+    infer_proj subst_ctx subst_forall_inner lbl
+  (* Rcd Prj *)
+  | tp -> lookup_row ctx tp lbl
+
+
+and lookup_row ctx tp lbl =
+  match tp with
+  (* LookupRcd *)
+  | Record (r, rt) ->
+    (match List.find_map
+    (function (lbl', tp) when String.(equal lbl lbl') -> Some tp
+        | _ -> None
+    ) r with
+    | Some tp -> (tp, ctx)
+    | None ->
+      (match rt with
+      | Some (Tail_evar ev) ->
+        let fresh_rt, fresh_rt_ce, _, ctx1 = fresh_row_evar ctx in
+        let fresh_ev_tp, fresh_ev_ce, _, ctx2 = fresh_evar ctx1 in
+        let ctx3 = insert_before_in_ctx (Context_row_evar ev) [fresh_ev_ce; fresh_rt_ce] ctx2 in
+        let ctx4 = solve_row_evar ev ([(lbl, fresh_ev_tp)], Some fresh_rt) ctx3 in
+        (fresh_ev_tp, ctx4)
+      | _ -> failwith @@ "lookup_row: " ^ lbl ^ " not found."
+      )
+     )
+  (* LookupEVar *)
+  | EVar ev ->
+    let fresh_rt, fresh_rt_ce, _, ctx1 = fresh_row_evar ctx in
+    let fresh_ev_tp, fresh_ev_ce, _, ctx2 = fresh_evar ctx1 in
+    let ctx3 = insert_before_in_ctx (Context_evar ev) [fresh_ev_ce; fresh_rt_ce] ctx2 in
+    let ctx4 = solve_evar ev (Record ([(lbl, fresh_ev_tp)], Some fresh_rt)) ctx3 in
+    (fresh_ev_tp, ctx4)
+  | _ -> failwith "lookup_row: Got unexpected type."
+
+and infer_ext ctx rcd_head tp =
+  match tp with
+  | Forall (tv, forall_inner) ->
+    let ev_tp, ev_ce, _, ctx' = fresh_evar ctx in
+    let subst_ctx = append_ctx [ ev_ce ] ctx' in
+    let subst_forall_inner = substitute tv ~replace_with:ev_tp forall_inner in
+    infer_ext subst_ctx rcd_head subst_forall_inner
+  (* TODO Need to replace the label if it already exists *)
+  | Record (r, rt) -> (Record (rcd_head :: r, rt), ctx)
+  | EVar ev ->
+    let fresh_rt, fresh_rt_ce, _, ctx1 = fresh_row_evar ctx in
+    let rcd_tp = (Record ([], Some fresh_rt)) in
+    let ctx2 = insert_before_in_ctx (Context_evar ev) [fresh_rt_ce] ctx1 in
+    let ctx3 = solve_evar ev rcd_tp ctx2 in
+    (* This is like rcd_tp, but extended with the rcd_head given *)
+    (Record ([rcd_head], Some fresh_rt), ctx3)
+  | _ -> failwith "infer_ext: Got unexpected type."
 
 and subsumes ctx tp1 tp2 =
   match (tp1, tp2) with
@@ -669,14 +750,19 @@ and instantiateReach ctx ev1 ev2 =
   | _ ->
       failwith
       @@ "instantiateReach: evar not in context. "
+      ^ "ev1 ("
+      ^ Int.to_string ev1
+      ^ ") is "
       ^ Option.map_or
-          ~default:"ev1 not in context"
-          (fst %> Int.to_string)
+          ~default:"not in context"
+          (fun _ -> "in context")
           ev1_index
-      ^ " "
+      ^ " and ev2 ("
+      ^ Int.to_string ev2
+      ^ ") is "
       ^ Option.map_or
-          ~default:"ev2 not in context"
-          (fst %> Int.to_string)
+          ~default:"not in context"
+          (fun _ -> "in context")
           ev2_index
       ^ " "
       ^ List.to_string show_context_element ctx.context
