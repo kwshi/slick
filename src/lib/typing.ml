@@ -493,7 +493,12 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : t Ast.Expr.t * context =
       let e_inferred' = apply_ctx_expr new_ctx e_inferred in
       let proj_tp, proj_ctx = infer_proj new_ctx e_inferred'.tp lbl in
       ( { expr = Ast.Expr.Projection (e_inferred', lbl); tp = proj_tp}, proj_ctx)
-  | _ -> failwith "infer: unimplemented"
+  | Ast.Expr.Extension (lbl, e1, e2) ->
+      let e1_inferred, new_ctx  = infer ctx e1 in
+      let e2_inferred, new_ctx' = infer new_ctx e2 in
+      let e2_inferred' = apply_ctx_expr new_ctx' e2_inferred in
+      let ext_tp, ext_ctx = infer_ext new_ctx' (lbl, e1_inferred.tp) e2_inferred'.tp in
+      ( { expr = Ast.Expr.Extension (lbl, e1_inferred, e2_inferred'); tp = ext_tp}, ext_ctx)
 
 
 and check ctx annotated tp =
@@ -554,11 +559,9 @@ and infer_proj ctx tp lbl =
   (* Forall Prj *)
   | Forall (tv, forall_inner) ->
     let ev_tp, ev_ce, _, ctx' = fresh_evar ctx in
-    let marker = Context_marker ev_ce in
-    let subst_ctx = append_ctx [ marker; ev_ce ] ctx' in
+    let subst_ctx = append_ctx [ ev_ce ] ctx' in
     let subst_forall_inner = substitute tv ~replace_with:ev_tp forall_inner in
-    let proj_tp, proj_ctx = infer_proj subst_ctx subst_forall_inner lbl in
-    (proj_tp, drop_ctx_from marker proj_ctx)
+    infer_proj subst_ctx subst_forall_inner lbl
   (* Rcd Prj *)
   | tp -> lookup_row ctx tp lbl
 
@@ -592,6 +595,23 @@ and lookup_row ctx tp lbl =
     (fresh_ev_tp, ctx4)
   | _ -> failwith "lookup_row: Got unexpected type."
 
+and infer_ext ctx rcd_head tp =
+  match tp with
+  | Forall (tv, forall_inner) ->
+    let ev_tp, ev_ce, _, ctx' = fresh_evar ctx in
+    let subst_ctx = append_ctx [ ev_ce ] ctx' in
+    let subst_forall_inner = substitute tv ~replace_with:ev_tp forall_inner in
+    infer_ext subst_ctx rcd_head subst_forall_inner
+  (* TODO Need to replace the label if it already exists *)
+  | Record (r, rt) -> (Record (rcd_head :: r, rt), ctx)
+  | EVar ev ->
+    let fresh_rt, fresh_rt_ce, _, ctx1 = fresh_row_evar ctx in
+    let rcd_tp = (Record ([], Some fresh_rt)) in
+    let ctx2 = insert_before_in_ctx (Context_evar ev) [fresh_rt_ce] ctx1 in
+    let ctx3 = solve_evar ev rcd_tp ctx2 in
+    (* This is like rcd_tp, but extended with the rcd_head given *)
+    (Record ([rcd_head], Some fresh_rt), ctx3)
+  | _ -> failwith "infer_ext: Got unexpected type."
 
 and subsumes ctx tp1 tp2 =
   match (tp1, tp2) with
