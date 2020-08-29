@@ -385,10 +385,13 @@ let substitute_evar ev ~replace_with =
     | Function (t1, t2) ->
         Function (go t1, go t2)
     | EVar ev' ->
-        if Int.(ev' = ev) then replace_with else EVar ev
+        if Int.(ev' = ev) then replace_with else EVar ev'
     | TVar tv ->
         TVar tv
     | Forall (tv, tp) ->
+        (* It's probably OK since we make unique identifiers, but we probably
+        should check if we're replacing with a TVar and avoid going into the
+        body of the Forall if the TVars match. *)
         Forall (tv, go tp)
   in
   go
@@ -397,9 +400,9 @@ let substitute_evar ev ~replace_with =
 (* quantifies over all the given evars *)
 
 let quantify (evars : int list) (tp : t) : t =
-  let quantify_single ev tp =
+  let quantify_single ev tp' =
     let tv = "a" ^ Int.to_string ev in
-    Forall (tv, substitute_evar ev ~replace_with:(TVar tv) tp)
+    Forall (tv, substitute_evar ev ~replace_with:(TVar tv) tp')
   in
   List.fold_right quantify_single evars tp
 
@@ -669,14 +672,19 @@ and instantiateReach ctx ev1 ev2 =
   | _ ->
       failwith
       @@ "instantiateReach: evar not in context. "
+      ^ "ev1 ("
+      ^ Int.to_string ev1
+      ^ ") is "
       ^ Option.map_or
-          ~default:"ev1 not in context"
-          (fst %> Int.to_string)
+          ~default:"not in context"
+          (fun _ -> "in context")
           ev1_index
-      ^ " "
+      ^ " and ev2 ("
+      ^ Int.to_string ev2
+      ^ ") is "
       ^ Option.map_or
-          ~default:"ev2 not in context"
-          (fst %> Int.to_string)
+          ~default:"not in context"
+          (fun _ -> "in context")
           ev2_index
       ^ " "
       ^ List.to_string show_context_element ctx.context
