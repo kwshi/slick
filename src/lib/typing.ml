@@ -665,6 +665,7 @@ and row_tail_subsumes ctx tail1 missingFrom1 tail2 missingFrom2 =
 
     (* The first tail must not be an evar otherwise the reach case would match, thus it must have no missing elements to add to it. *)
     | (_, [], Some (Tail_evar ev2), _) ->  solve_row_evar ev2 (missingFrom2, tail1) ctx
+    | (None, [], None, []) -> ctx
     | _ -> failwith "row_tail_subsumes: invalid case"
 
 and row_tail_subsumes_ev ctx ev1 missingFrom1 ev2 missingFrom2 =
