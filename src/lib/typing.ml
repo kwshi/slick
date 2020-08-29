@@ -13,10 +13,12 @@ type label = string
 
 let pp_label = Format.string
 
+type primitive =
+  | Int
+
 type tail =
   | Tail_evar of int
   | Tail_tvar of var_name
-[@@deriving show]
 
 type t =
   | Record of row
@@ -26,8 +28,10 @@ type t =
   | TVar of var_name
   | Forall of var_name * t
   | ForallRow of var_name * t
-[@@deriving show]
-and row = (label * t) list * tail option [@@deriving show]
+  | Primitive of primitive
+
+and row =
+  (label * t) list * tail option 
 
 let pp_tail ppf tl =
   let open Fmt in
@@ -55,6 +59,9 @@ let rec pp ppf t =
     any "forall@ " ++ const string a ++ any ".@ " ++ const pp e
   | ForallRow (a, e) ->
     any "forall_row@ " ++ const string a ++ any ".@ " ++ const pp e
+  | Primitive p ->
+    match p with
+    | Int -> any "Int"
   ) ppf ()
 and pp_row ppf (es, tl) =
   let open Fmt in
@@ -308,6 +315,8 @@ let apply_ctx_expr ctx =
           Expr.Projection (go r, lbl)
       | Expr.Extension (lbl, e, r) ->
           Expr.Extension (lbl, go e, go r)
+      | Expr.Literal l ->
+        Expr.Literal l
     in
     { expr; tp }
   in
@@ -391,6 +400,8 @@ let substitute tv ~replace_with =
         if String.(equal tv tv') then Forall (tv', tp) else Forall (tv', go tp)
     | ForallRow (tv', tp) ->
         if String.(equal tv tv') then ForallRow (tv', tp) else ForallRow (tv', go tp)
+    | Primitive p ->
+      Primitive p
   in
   go
 
@@ -414,6 +425,8 @@ let substitute_row tv ~replace_with =
         if String.(equal tv tv') then Forall (tv', tp) else Forall (tv', go tp)
     | ForallRow (tv', tp) ->
         if String.(equal tv tv') then ForallRow (tv', tp) else ForallRow (tv', go tp)
+    | Primitive p ->
+      Primitive p
   in
   go
 
@@ -439,6 +452,8 @@ let substitute_evar ev ~replace_with =
     | ForallRow (tv, tp) ->
         (* See above *)
         ForallRow (tv, go tp)
+    | Primitive p ->
+      Primitive p
   in
   go
 
@@ -466,6 +481,8 @@ let substitute_row_evar ev ~replace_with =
     | ForallRow (tv, tp) ->
         (* See above *)
         ForallRow (tv, go tp)
+    | Primitive p ->
+      Primitive p
   in
   go
 
@@ -574,6 +591,14 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : t Ast.Expr.t * context =
       let e2_inferred' = apply_ctx_expr new_ctx' e2_inferred in
       let ext_tp, ext_ctx = infer_ext new_ctx' (lbl, e1_inferred.tp) e2_inferred'.tp in
       ( { expr = Ast.Expr.Extension (lbl, e1_inferred, e2_inferred'); tp = ext_tp}, ext_ctx)
+  | Ast.Expr.Literal l ->
+    ({expr = Ast.Expr.Literal l;
+      tp =
+        Primitive
+          (match l with
+           | Ast.Expr.Int _ -> Int
+          )
+     }, ctx)
 
 
 and check ctx annotated tp =

@@ -10,17 +10,22 @@ type var_name = string
 
 let pp_var_name = Format.string
 
+(*
 module Type = struct
   type t =
     | Record of record
     | Variant of unit (* TODO *)
     | Function of (record * t)
-  [@@deriving show]
 
-  and record = (string * t) list [@@deriving show]
+  and record = (string * t) list 
 end
 
+              *)
+
 module Expr = struct
+  type literal =
+    | Int of Z.t
+
   type 't raw_expr =
     | Assign of var_name * 't * 't
     | Function of (var_name * 't)
@@ -30,15 +35,14 @@ module Expr = struct
     | Extension of (label * 't * 't)
     | Variant of (string * 't record)
     | Var of var_name
-  [@@deriving show]
+    | Literal of literal
 
-  and 'annotated_expr record = (label * 'annotated_expr) list [@@deriving show]
+  and 'annotated_expr record = (label * 'annotated_expr) list 
 
   and 'tp t =
     { tp : 'tp
     ; expr : 'tp t raw_expr
     }
-  [@@deriving show]
 
   module Untyped = struct
     type 'a expr = 'a t
@@ -64,6 +68,8 @@ module Expr = struct
     let make_var v = make @@ Var v
 
     let make_assign v e b = make @@ Assign (v, e, b)
+
+    let make_literal l = make @@ Literal l
   end
 end
 

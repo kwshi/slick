@@ -9,7 +9,9 @@ module Slick = struct end
 
 %token <string> LOWER_IDENT
 %token <string> UPPER_IDENT
+%token <Z.t> INT
 %token BACKSLASH
+%token HYPHEN
 %token LPAREN
 %token RPAREN
 %token ARROW
@@ -47,6 +49,7 @@ expr:
   | a = function_app { a }
   | s = UPPER_IDENT; r = record_expr { Expr.make_variant s r }
   | e = atomic_expr { e }
+  | n = INT { Expr.(make_literal (Int n)) }
 
 atomic_expr:
   | LPAREN; e = expr; RPAREN { e }

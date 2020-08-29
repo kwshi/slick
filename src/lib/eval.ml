@@ -4,10 +4,14 @@ module Scope = Map.Make(String)
 
 type var_name = string
 
+type primitive =
+  | Int of Z.t
+
 type t =
   | Record of (string * t) list
   | Function of (t -> t)
   | Variant of string * (string * t) list
+  | Primitive of primitive
 
 let rec pp ppf value =
   let open Fmt in
@@ -18,6 +22,9 @@ let rec pp ppf value =
       any "<function>"
     | Variant (v, r) ->
       const string v ++ const pp_record r
+    | Primitive p ->
+      match p with
+      | Int n -> const Z.pp_print n
   )
     ppf
     ()
@@ -55,6 +62,12 @@ let rec evaluate (sc : t Scope.t) expr =
     Variant (v, r |> List.map @@ Pair.map2 @@ evaluate sc)
   | Var v ->
     Scope.find v sc
+  | Literal l ->
+    Primitive
+      (match l with
+       | Int n -> Int n
+      )
+    
 
 (* let rec evaluate ctx annotated =
  *   let open Ast.Expr in

@@ -15,6 +15,8 @@ let lower_ident = ['a'-'z'] ['a'-'z' 'A'-'Z' '0'-'9' '_']*
 
 let upper_ident = ['A'-'Z'] ['a'-'z' 'A'-'Z' '0'-'9' '_']*
 
+let nonnegative_digits = '0' | ['1'-'9'] ['0'-'9']*
+
 let newline = "\r" | "\n" | "\r\n"
 
 let white = [' ' '\t']+
@@ -36,6 +38,8 @@ rule read =
   | ":=" { WALRUS }
   | "," { COMMA }
   | "." { DOT }
+  | "-" { HYPHEN }
+  | nonnegative_digits { INT (Lexing.lexeme lexbuf |> Z.of_string) } 
   | lower_ident { LOWER_IDENT (Lexing.lexeme lexbuf) }
   | upper_ident { UPPER_IDENT (Lexing.lexeme lexbuf) }
   | _ { raise (Ast.SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) } 
