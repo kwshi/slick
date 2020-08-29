@@ -1,8 +1,7 @@
 open Containers
 
-module Scope = Map.Make(String)
 
-let rec evaluate (sc : Value.t Scope.t) expr =
+let rec evaluate (sc : Val.t Scope.t) expr =
   match expr.Ast.Expr.expr with
   | Assign (v, e, b) ->
     evaluate (Scope.add v (evaluate sc e) sc) b
