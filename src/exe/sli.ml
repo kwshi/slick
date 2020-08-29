@@ -5,15 +5,14 @@ let pp_logo_lines ppf () =
   let open Fmt in
   let h = styled (`Fg (`Hi `Green)) % any in
   let h' = styled `None % styled (`Fg `Green) % any in
-  let s = sps in
   let a = any in
-  [ s 6 ++ h "__" ++ s 7 ++ a "__"
-  ; s 3 ++ a "___" ++ h "\\ \\" ++ a "__  __\\ \\  __"
-  ; a "  / ___" ++ h "\\ \\" ++ a " \\/ __\\ \\/ /"
-  ; a "  \\____ " ++ h "\\ \\" ++ a " \\ \\__\\   \\_"
-  ; s 3 ++ a "___" ++ h' "/" ++ h "_/\\_\\" ++ a "_\\___/\\_\\___"
+  [ sps 4 ++ h "__" ++ sps 7 ++ a "__"
+  ; sp ++ a "___" ++ h "\\ \\" ++ a "__  __\\ \\  __"
+  ; a "/ ___" ++ h "\\ \\" ++ a " \\/ __\\ \\/ /"
+  ; a "\\____ " ++ h "\\ \\" ++ a " \\ \\__\\   \\_"
+  ; a "____" ++ h' "/" ++ h "_/\\_\\" ++ a "_\\___/\\_\\___"
   ]
-  |> List.map hbox
+  |> List.map (hbox % ( ++ ) (sps 2))
   |> List.intersperse cut
   |> List.iter (fun pp -> pp ppf ())
 
@@ -30,15 +29,16 @@ let pp =
   let open Fmt in
   hvbox
     (pair
-       ~sep:(sp ++ styled (`Fg `Blue) (hbox (any ":@ ")))
+       ~sep:(sp ++ styled `Faint (hbox (any ":@ ")))
        (styled (`Fg (`Hi `Cyan)) Slick.Value.pp)
-       (styled (`Fg (`Hi `Blue)) @@ Slick.Type.pp))
+       (styled `Faint Slick.Type.pp))
   ++ const Format.pp_print_newline ()
 
 
 let () =
   Fmt.(set_style_renderer stdout `Ansi_tty) ;
   Fmt.(set_style_renderer stderr `Ansi_tty) ;
+  LNoise.catch_break true ;
   pp_logo Fmt.stderr () ;
   while true do
     match LNoise.linenoise "slick> " with
@@ -57,7 +57,7 @@ let () =
       | "" ->
           ()
       | input ->
-          LNoise.history_add input |> Result.get_exn ;
+          LNoise.history_add input |> ignore ;
           let expr, _ =
             Lexing.from_string input
             |> Slick.Parser.prog Slick.Lexer.read
