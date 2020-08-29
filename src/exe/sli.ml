@@ -12,7 +12,7 @@ let pp_logo_lines ppf () =
   ; a "\\____ " ++ h "\\ \\" ++ a " \\ \\__\\   \\_"
   ; a "____" ++ h' "/" ++ h "_/\\_\\" ++ a "_\\___/\\_\\___"
   ]
-  |> List.map (hbox % (++) (sps 2))
+  |> List.map (hbox % ( ++ ) (sps 2))
   |> List.intersperse cut
   |> List.iter (fun pp -> pp ppf ())
 
@@ -38,6 +38,7 @@ let pp =
 let () =
   Fmt.(set_style_renderer stdout `Ansi_tty) ;
   Fmt.(set_style_renderer stderr `Ansi_tty) ;
+  LNoise.catch_break true ;
   pp_logo Fmt.stderr () ;
   while true do
     match LNoise.linenoise "slick> " with
@@ -56,7 +57,7 @@ let () =
       | "" ->
           ()
       | input ->
-          LNoise.history_add input |> Result.get_exn ;
+          LNoise.history_add input |> ignore ;
           let expr, _ =
             Lexing.from_string input
             |> Slick.Parser.prog Slick.Lexer.read
