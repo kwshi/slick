@@ -13,7 +13,7 @@ let () =
   Fmt.(set_style_renderer stdout `Ansi_tty)
 ; while true do
     let input =
-      LNoise.linenoise "sli> "
+      LNoise.linenoise "slick> "
       |> Option.get_exn
     in
     LNoise.history_add input
