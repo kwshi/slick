@@ -34,10 +34,10 @@ let () =
           let expr, _ =
             Lexing.from_string input
             |> Slick.Parser.prog Slick.Lexer.read
-            |> Slick.Typing.infer_top Slick.Typing.empty_ctx
+            |> Slick.Typing.infer_top Slick.Builtin.ctx
           in
           pp
             Fmt.stdout
-            ( Slick.Eval.evaluate Slick.Eval.Scope.empty expr
+            ( Slick.Eval.evaluate Slick.Builtin.scope expr
             , expr.Slick.Ast.Expr.tp ) )
   done
