@@ -73,6 +73,9 @@ type context_element =
   | Context_marker of context_element
 [@@deriving show]
 
+
+(* Row functions *)
+
 let row_map_difference m1 m2 = RowMap.filter (fun l _ -> RowMap.find_opt l m2 |> Option.is_none) m1
 
 let row_map_zip =
@@ -94,6 +97,12 @@ type context =
   }
 
 let empty_ctx = { next_var = 0; context = [] }
+
+(* Debug functions *)
+
+let print_ctx (ctx : context) = print_string @@ List.to_string show_context_element ctx.context; print_newline ()
+
+let print_tp tp = pp Format.stdout tp; Format.print_newline ()
 
 (* Smart constructors for making fresh evars. Returns a tuple consisting of
   ( var as a type
@@ -481,8 +490,9 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : t Ast.Expr.t * context =
       ( { expr = Ast.Expr.Assign (var, e1_inferred', e2_inferred); tp = e2_inferred.tp}, new_ctx')
   | Ast.Expr.Projection (e, lbl) ->
       let e_inferred, new_ctx = infer ctx e in
-      let proj_tp, proj_ctx = infer_proj new_ctx e_inferred.tp lbl in
-      ( { expr = Ast.Expr.Projection (e_inferred, lbl); tp = proj_tp}, proj_ctx)
+      let e_inferred' = apply_ctx_expr new_ctx e_inferred in
+      let proj_tp, proj_ctx = infer_proj new_ctx e_inferred'.tp lbl in
+      ( { expr = Ast.Expr.Projection (e_inferred', lbl); tp = proj_tp}, proj_ctx)
   | _ -> failwith "infer: unimplemented"
 
 
@@ -577,7 +587,7 @@ and lookup_row ctx tp lbl =
   | EVar ev ->
     let fresh_rt, fresh_rt_ce, _, ctx1 = fresh_row_evar ctx in
     let fresh_ev_tp, fresh_ev_ce, _, ctx2 = fresh_evar ctx1 in
-    let ctx3 = insert_before_in_ctx (Context_row_evar ev) [fresh_ev_ce; fresh_rt_ce] ctx2 in
+    let ctx3 = insert_before_in_ctx (Context_evar ev) [fresh_ev_ce; fresh_rt_ce] ctx2 in
     let ctx4 = solve_evar ev (Record ([(lbl, fresh_ev_tp)], Some fresh_rt)) ctx3 in
     (fresh_ev_tp, ctx4)
   | _ -> failwith "lookup_row: Got unexpected type."
