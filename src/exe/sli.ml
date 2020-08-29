@@ -29,9 +29,9 @@ let pp =
   let open Fmt in
   hvbox
     (pair
-       ~sep:(sp ++ styled (`Fg `Blue) (hbox (any ":@ ")))
+       ~sep:(sp ++ styled `Faint (hbox (any ":@ ")))
        (styled (`Fg (`Hi `Cyan)) Slick.Value.pp)
-       (styled (`Fg (`Hi `Blue)) @@ Slick.Type.pp))
+       (styled `Faint Slick.Type.pp))
   ++ const Format.pp_print_newline ()
 
 
