@@ -8,7 +8,6 @@ module Primitive = struct
     let open Fmt in
     (match p with Int n -> const Z.pp_print n) ppf ()
 
-
   module Get = struct
     let int = function Int n -> Some n
 
@@ -43,9 +42,7 @@ let rec pp ppf value =
       const string v ++ const pp_record r
   | Primitive p ->
       const Primitive.pp p )
-    ppf
-    ()
-
+    ppf ()
 
 and pp_record ppf =
   let open Fmt in
@@ -53,7 +50,6 @@ and pp_record ppf =
   ++ list ~sep:(any ",@ ") (pair ~sep:(any "@ =@ ") string pp)
   ++ any "}" )
     ppf
-
 
 module Get = struct
   let record = function Record r -> Some r | _ -> None

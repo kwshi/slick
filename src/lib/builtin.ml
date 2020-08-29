@@ -15,16 +15,14 @@ let vals =
           Primitive (Int (f a b)))
     , Type.Function
         ( Type.Record
-            ( [ ("a", Type.Primitive Type.Int); ("b", Type.Primitive Type.Int) ]
+            ( [("a", Type.Primitive Type.Int); ("b", Type.Primitive Type.Int)]
             , None )
         , Type.Primitive Type.Int ) )
   in
   [ int_bop "int_add" Z.add
   ; int_bop "int_sub" Z.sub
   ; int_bop "int_mul" Z.mul
-  ; int_bop "int_div" Z.div
-  ]
-
+  ; int_bop "int_div" Z.div ]
 
 let scope, ctx =
   vals
