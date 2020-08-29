@@ -1,5 +1,5 @@
 open Containers
-    
+
 type element =
   | Var of string * Type.t (* Ast.var_name instead of string? *)
   | Row_evar of int
@@ -10,16 +10,16 @@ type element =
   | Row_evar_assignment of int * Type.row
   | Marker of element
 [@@deriving show]
-      
+
 type t =
   { next_var : int
-  (* this is for both evars and tvars - we could separate it though *)
+        (* this is for both evars and tvars - we could separate it though *)
   ; context : element list
   }
-  
+
 let empty = { next_var = 0; context = [] }
 
-let of_list context = {next_var = List.length context; context}
+let of_list context = { next_var = List.length context; context }
 
 let fresh_evar ctx =
   ( Type.EVar ctx.next_var
@@ -42,19 +42,21 @@ let over_context f ctx =
 
 let lookup_var v ctx =
   List.find_map
-    (function
-      | Var (v', tp) when String.(equal v v') -> Some tp | _ -> None)
+    (function Var (v', tp) when String.(equal v v') -> Some tp | _ -> None)
     ctx.context
   |> Option.get_lazy (fun () ->
          failwith @@ "lookup_var unbound var: " ^ v ^ ".")
+
 
 let free_evars ctx =
   let match_evar = function Evar ev -> Some ev | _ -> None in
   List.filter_map match_evar ctx.context
 
+
 let free_row_evars ctx =
   let match_evar = function Row_evar ev -> Some ev | _ -> None in
   List.filter_map match_evar ctx.context
+
 
 (* drop_ctx_from:
    takes in a context_element ce and a context.
@@ -170,7 +172,7 @@ let apply_ctx_expr ctx =
       | Expr.Extension (lbl, e, r) ->
           Expr.Extension (lbl, go e, go r)
       | Expr.Literal l ->
-        Expr.Literal l
+          Expr.Literal l
     in
     { expr; tp }
   in
@@ -191,13 +193,12 @@ let insert_before_in_ctx ce ces =
   @@ fun l ->
   List.fold_right
     (fun ce' acc ->
-      (if Stdlib.(ce' = ce) (* TODO get rid of polymorphic comparison *)
-        then ces
-        else [] )
+      ( if Stdlib.(ce' = ce) (* TODO get rid of polymorphic comparison *)
+      then ces
+      else [] )
       @ (ce' :: acc))
     l
     []
 
 
 let append_ctx ces = over_context @@ fun context -> List.append context ces
-

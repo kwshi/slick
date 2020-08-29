@@ -1,2 +1,2 @@
 open Containers
-include Map.Make(String)
+include Map.Make (String)
