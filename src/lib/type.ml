@@ -46,7 +46,7 @@ let rec pp ppf t =
   | Variant () ->
       any "variant"
   | Function (a, b) ->
-      const pp a ++ any "@ ->@ " ++ const pp b
+      any "(" ++ const pp a ++ any "@ ->@ " ++ const pp b ++ any ")"
   | EVar ev ->
       any "e" ++ const int ev
   | TVar tv ->

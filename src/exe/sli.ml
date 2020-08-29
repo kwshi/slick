@@ -1,4 +1,30 @@
 open Containers
+open Fun
+
+let pp_logo_lines ppf () =
+  let open Fmt in
+  let h = styled (`Fg (`Hi `Green)) % any in
+  let h' = styled `None % styled (`Fg `Green) % any in
+  let s = sps in
+  let a = any in
+  [ s 6 ++ h "__" ++ s 7 ++ a "__"
+  ; s 3 ++ a "___" ++ h "\\ \\" ++ a "__  __\\ \\  __"
+  ; a "  / ___" ++ h "\\ \\" ++ a " \\/ __\\ \\/ /"
+  ; a "  \\____ " ++ h "\\ \\" ++ a " \\ \\__\\   \\_"
+  ; s 3 ++ a "___" ++ h' "/" ++ h "_/\\_\\" ++ a "_\\___/\\_\\___"
+  ]
+  |> List.map hbox
+  |> List.intersperse cut
+  |> List.iter (fun pp -> pp ppf ())
+
+
+let pp_logo =
+  let open Fmt in
+  vbox (styled `Bold @@ styled (`Fg (`Hi `Blue)) @@ pp_logo_lines)
+  ++ hbox (sp ++ styled `Faint (any "insert catchphrase here"))
+  ++ Format.pp_force_newline
+  ++ Format.pp_print_newline
+
 
 let pp =
   let open Fmt in
@@ -13,6 +39,7 @@ let pp =
 let () =
   Fmt.(set_style_renderer stdout `Ansi_tty) ;
   Fmt.(set_style_renderer stderr `Ansi_tty) ;
+  pp_logo Fmt.stderr () ;
   while true do
     match LNoise.linenoise "slick> " with
     | None ->
@@ -34,10 +61,10 @@ let () =
           let expr, _ =
             Lexing.from_string input
             |> Slick.Parser.prog Slick.Lexer.read
-            |> Slick.Typing.infer_top Slick.Typing.empty_ctx
+            |> Slick.Typing.infer_top Slick.Builtin.ctx
           in
           pp
             Fmt.stdout
-            ( Slick.Eval.evaluate Slick.Eval.Scope.empty expr
+            ( Slick.Eval.evaluate Slick.Builtin.scope expr
             , expr.Slick.Ast.Expr.tp ) )
   done
