@@ -28,13 +28,14 @@ type t =
 [@@deriving show]
 and row = (label * t) list * tail option [@@deriving show]
 
-let pp_tail ppf =
+let pp_tail ppf tl =
   let open Fmt in
-  function
-  | Tail_evar ev ->
-    int ppf ev
-  | Tail_tvar tv ->
-    string ppf tv
+  (match tl with
+   | Tail_evar ev ->
+     any "e" ++ const int ev
+   | Tail_tvar tv ->
+     const string tv
+  ) ppf ()
 
 let rec pp ppf t =
   let open Fmt in
@@ -52,14 +53,13 @@ let rec pp ppf t =
   | Forall (a, e) ->
     any "forall@ " ++ const string a ++ any ".@ " ++ const pp e
   ) ppf ()
-and pp_row ppf =
+and pp_row ppf (es, tl) =
   let open Fmt in
   (any "{"
-   ++ pair
-     (list ~sep:comma (pair ~sep:(any ":@ ") string pp))
-     (option pp_tail)
+   ++ const (option ~none:nop (pp_tail ++ any "@ |@ ")) tl
+   ++ const (list ~sep:comma (pair ~sep:(any "@ :@ ") string pp)) es
    ++ any "}"
-  ) ppf
+  ) ppf ()
 
 
 type context_element =

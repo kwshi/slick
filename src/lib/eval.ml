@@ -23,7 +23,7 @@ let rec pp ppf value =
     ()
 and pp_record ppf =
   let open Format in
-  (list ~sep:(return ",@ ") (pair ~sep:(return "=") string pp)
+  (list ~sep:(return ",@ ") (pair ~sep:(return "@ =@ ") string pp)
    |> within "{" "}"
   ) ppf
 
