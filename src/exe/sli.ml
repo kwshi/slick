@@ -3,8 +3,9 @@ open Containers
 let () =
   while true do
     let expr, _ =
-      Fmt.(hbox @@ any "sli>@ @?") Format.stdout ()
-    ; Lexing.from_string (read_line ())
+      LNoise.linenoise "sli> "
+      |> Option.get_exn
+      |> Lexing.from_string
       |> Slick.Parser.prog Slick.Lexer.read
       |> Slick.Typing.infer_top Slick.Typing.empty_ctx
     in
