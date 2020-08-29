@@ -1,8 +1,6 @@
 open Containers
 open Fun
 
-(* module LookupTable = Map.Make (String)
- * module UVarTable = Map.Make (Int) *)
 module RowMap = Map.Make (String)
 
 type var_name = string
