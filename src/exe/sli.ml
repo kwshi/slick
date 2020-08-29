@@ -5,15 +5,14 @@ let pp_logo_lines ppf () =
   let open Fmt in
   let h = styled (`Fg (`Hi `Green)) % any in
   let h' = styled `None % styled (`Fg `Green) % any in
-  let s = sps in
   let a = any in
-  [ s 6 ++ h "__" ++ s 7 ++ a "__"
-  ; s 3 ++ a "___" ++ h "\\ \\" ++ a "__  __\\ \\  __"
-  ; a "  / ___" ++ h "\\ \\" ++ a " \\/ __\\ \\/ /"
-  ; a "  \\____ " ++ h "\\ \\" ++ a " \\ \\__\\   \\_"
-  ; s 3 ++ a "___" ++ h' "/" ++ h "_/\\_\\" ++ a "_\\___/\\_\\___"
+  [ sps 4 ++ h "__" ++ sps 7 ++ a "__"
+  ; sp ++ a "___" ++ h "\\ \\" ++ a "__  __\\ \\  __"
+  ; a "/ ___" ++ h "\\ \\" ++ a " \\/ __\\ \\/ /"
+  ; a "\\____ " ++ h "\\ \\" ++ a " \\ \\__\\   \\_"
+  ; a "____" ++ h' "/" ++ h "_/\\_\\" ++ a "_\\___/\\_\\___"
   ]
-  |> List.map hbox
+  |> List.map (hbox % (++) (sps 2))
   |> List.intersperse cut
   |> List.iter (fun pp -> pp ppf ())
 
