@@ -5,8 +5,8 @@ let pp =
   hvbox
     (pair
        ~sep:(sp ++ styled (`Fg `Blue) (hbox (any ":@ ")))
-       (styled (`Fg (`Hi `Cyan)) Slick.Eval.pp)
-       (styled (`Fg (`Hi `Blue)) @@ Slick.Typing.pp))
+       (styled (`Fg (`Hi `Cyan)) Slick.Value.pp)
+       (styled (`Fg (`Hi `Blue)) @@ Slick.Type.pp))
   ++ const Format.pp_print_newline ()
 
 

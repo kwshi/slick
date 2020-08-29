@@ -3,81 +3,15 @@ open Fun
 
 module RowMap = Map.Make (String)
 
-type var_name = string
-
-let pp_var_name = Format.string
-
-type label = string
-
-let pp_label = Format.string
-
-type primitive =
-  | Int
-
-type tail =
-  | Tail_evar of int
-  | Tail_tvar of var_name
-
-type t =
-  | Record of row
-  | Variant of unit
-  | Function of (t * t)
-  | EVar of int
-  | TVar of var_name
-  | Forall of var_name * t
-  | ForallRow of var_name * t
-  | Primitive of primitive
-
-and row =
-  (label * t) list * tail option 
-
-let pp_tail ppf tl =
-  let open Fmt in
-  (match tl with
-   | Tail_evar ev ->
-     any "e" ++ const int ev
-   | Tail_tvar tv ->
-     const string tv
-  ) ppf ()
-
-let rec pp ppf t =
-  let open Fmt in
-  (match t with
-  | Record r ->
-    const pp_row r
-  | Variant () ->
-    any "variant"
-  | Function (a, b) ->
-    const pp a ++ any "@ ->@ " ++ const pp b
-  | EVar ev ->
-    any "e" ++ const int ev
-  | TVar tv ->
-    const string tv
-  | Forall (a, e) ->
-    any "forall@ " ++ const string a ++ any ".@ " ++ const pp e
-  | ForallRow (a, e) ->
-    any "forall_row@ " ++ const string a ++ any ".@ " ++ const pp e
-  | Primitive p ->
-    match p with
-    | Int -> any "Int"
-  ) ppf ()
-and pp_row ppf (es, tl) =
-  let open Fmt in
-  (any "{"
-   ++ const (option ~none:nop (pp_tail ++ any "@ |@ ")) tl
-   ++ const (list ~sep:comma (pair ~sep:(any "@ :@ ") string pp)) es
-   ++ any "}"
-  ) ppf ()
-
 
 type context_element =
-  | Context_var of string * t (* Ast.var_name instead of string? *)
+  | Context_var of string * Type.t (* Ast.var_name instead of string? *)
   | Context_row_evar of int
   | Context_row_tvar of string
   | Context_evar of int
   | Context_tvar of string
-  | Context_evar_assignment of int * t
-  | Context_row_evar_assignment of int * row
+  | Context_evar_assignment of int * Type.t
+  | Context_row_evar_assignment of int * Type.row
   | Context_marker of context_element
 [@@deriving show]
 
@@ -110,7 +44,7 @@ let empty_ctx = { next_var = 0; context = [] }
 
 let print_ctx (ctx : context) = print_string @@ List.to_string show_context_element ctx.context; print_newline ()
 
-let print_tp tp = pp Format.stdout tp; Format.print_newline ()
+let print_tp tp = Type.pp Format.stdout tp; Format.print_newline ()
 
 (* Smart constructors for making fresh evars. Returns a tuple consisting of
   ( var as a type
@@ -120,14 +54,14 @@ let print_tp tp = pp Format.stdout tp; Format.print_newline ()
 *)
 
 let fresh_evar ctx =
-  ( EVar ctx.next_var
+  ( Type.EVar ctx.next_var
   , Context_evar ctx.next_var
   , ctx.next_var
   , { ctx with next_var = ctx.next_var + 1 } )
 
 
 let fresh_row_evar ctx =
-  ( Tail_evar ctx.next_var
+  ( Type.Tail_evar ctx.next_var
   , Context_row_evar ctx.next_var
   , ctx.next_var
   , { ctx with next_var = ctx.next_var + 1 } )
@@ -257,20 +191,20 @@ let free_row_evars ctx =
 *)
 let apply_ctx ctx =
   let rec go = function
-    | Record r ->
-        Record (row r)
-    | Function (t1, t2) ->
-        Function (go t1, go t2)
-    | EVar ev ->
+    | Type.Record r ->
+        Type.Record (row r)
+    | Type.Function (t1, t2) ->
+        Type.Function (go t1, go t2)
+    | Type.EVar ev ->
         ctx.context
         |> List.find_map (function
                | Context_evar_assignment (ev', t) when Int.(ev = ev') ->
                    Some (go t)
                | _ ->
                    None)
-        |> Option.get_or ~default:(EVar ev)
-    | Forall (tv, tp) ->
-        Forall (tv, go tp)
+        |> Option.get_or ~default:(Type.EVar ev)
+    | Type.Forall (tv, tp) ->
+        Type.Forall (tv, go tp)
     | t ->
         t
   and row (l, t) =
@@ -293,7 +227,7 @@ let apply_ctx ctx =
 
 let apply_ctx_expr ctx =
   let open Ast in
-  let rec go (annotated : t Ast.Expr.t) : t Ast.Expr.t =
+  let rec go (annotated : Type.t Ast.Expr.t) : Type.t Ast.Expr.t =
     let tp = apply_ctx ctx annotated.tp in
     let expr =
       match annotated.expr with
@@ -355,21 +289,21 @@ let append_ctx ces = over_context @@ fun context -> List.append context ces
 *)
 let occurs_check ev =
   let check_tail = function
-    | Some (Tail_evar ev') when Int.(ev = ev') ->
+    | Some (Type.Tail_evar ev') when Int.(ev = ev') ->
         failwith "occurs_check"
     | _ ->
         ()
   in
   let rec go = function
-    | Function (t1, t2) ->
+    | Type.Function (t1, t2) ->
         go t1 ;
         go t2
-    | EVar ev' when Int.(ev = ev') ->
+    | Type.EVar ev' when Int.(ev = ev') ->
         failwith "occurs_check"
-    | Record r ->
+    | Type.Record r ->
         check_tail (snd r) ;
         fst r |> List.iter (snd %> go)
-    | Forall (_, tp) ->
+    | Type.Forall (_, tp) ->
         go tp
     | _ ->
         ()
@@ -384,47 +318,47 @@ let occurs_check ev =
 *)
 let substitute tv ~replace_with =
   let rec go = function
-    | Record r ->
-        Record (Pair.map1 (List.map @@ Pair.map2 go) r)
-    | Variant () ->
-        Variant ()
-    | Function (t1, t2) ->
-        Function (go t1, go t2)
-    | EVar ev ->
-        EVar ev
-    | TVar tv' ->
+    | Type.Record r ->
+        Type.Record (Pair.map1 (List.map @@ Pair.map2 go) r)
+    | Type.Variant () ->
+        Type.Variant ()
+    | Type.Function (t1, t2) ->
+        Type.Function (go t1, go t2)
+    | Type.EVar ev ->
+        Type.EVar ev
+    | Type.TVar tv' ->
         if String.(equal tv tv') then replace_with else TVar tv'
-    | Forall (tv', tp) ->
-        if String.(equal tv tv') then Forall (tv', tp) else Forall (tv', go tp)
-    | ForallRow (tv', tp) ->
-        if String.(equal tv tv') then ForallRow (tv', tp) else ForallRow (tv', go tp)
-    | Primitive p ->
-      Primitive p
+    | Type.Forall (tv', tp) ->
+        if String.(equal tv tv') then Type.Forall (tv', tp) else Forall (tv', go tp)
+    | Type.ForallRow (tv', tp) ->
+        if String.(equal tv tv') then Type.ForallRow (tv', tp) else ForallRow (tv', go tp)
+    | Type.Primitive p ->
+      Type.Primitive p
   in
   go
 
 
 let substitute_row tv ~replace_with =
   let rec go = function
-    | Record (r,rt) ->
+    | Type.Record (r,rt) ->
         let rt' = match rt with
-          | Some (Tail_tvar tv') when String.(equal tv' tv) -> Some replace_with
+          | Some (Type.Tail_tvar tv') when String.(equal tv' tv) -> Some replace_with
           | _ -> None
-        in Record ((List.map @@ Pair.map2 go) r, rt')
-    | Variant () ->
-        Variant ()
-    | Function (t1, t2) ->
-        Function (go t1, go t2)
-    | EVar ev ->
-        EVar ev
-    | TVar tv' ->
-        TVar tv'
-    | Forall (tv', tp) ->
-        if String.(equal tv tv') then Forall (tv', tp) else Forall (tv', go tp)
-    | ForallRow (tv', tp) ->
-        if String.(equal tv tv') then ForallRow (tv', tp) else ForallRow (tv', go tp)
-    | Primitive p ->
-      Primitive p
+        in Type.Record ((List.map @@ Pair.map2 go) r, rt')
+    | Type.Variant () ->
+        Type.Variant ()
+    | Type.Function (t1, t2) ->
+        Type.Function (go t1, go t2)
+    | Type.EVar ev ->
+        Type.EVar ev
+    | Type.TVar tv' ->
+        Type.TVar tv'
+    | Type.Forall (tv', tp) ->
+        if String.(equal tv tv') then Type.Forall (tv', tp) else Type.Forall (tv', go tp)
+    | Type.ForallRow (tv', tp) ->
+        if String.(equal tv tv') then Type.ForallRow (tv', tp) else Type.ForallRow (tv', go tp)
+    | Type.Primitive p ->
+      Type.Primitive p
   in
   go
 
@@ -432,72 +366,72 @@ let substitute_row tv ~replace_with =
 (* could take a list as input to avoid multiple traversals *)
 let substitute_evar ev ~replace_with =
   let rec go = function
-    | Record r ->
-        Record (Pair.map1 (List.map @@ Pair.map2 go) r)
-    | Variant () ->
-        Variant ()
-    | Function (t1, t2) ->
-        Function (go t1, go t2)
-    | EVar ev' ->
-        if Int.(ev' = ev) then replace_with else EVar ev'
-    | TVar tv ->
-        TVar tv
-    | Forall (tv, tp) ->
+    | Type.Record r ->
+        Type.Record (Pair.map1 (List.map @@ Pair.map2 go) r)
+    | Type.Variant () ->
+        Type.Variant ()
+    | Type.Function (t1, t2) ->
+        Type.Function (go t1, go t2)
+    | Type.EVar ev' ->
+        if Int.(ev' = ev) then replace_with else Type.EVar ev'
+    | Type.TVar tv ->
+        Type.TVar tv
+    | Type.Forall (tv, tp) ->
         (* It's probably OK since we make unique identifiers, but we probably
         should check if we're replacing with a TVar and avoid going into the
         body of the Forall if the TVars match. *)
-        Forall (tv, go tp)
-    | ForallRow (tv, tp) ->
+        Type.Forall (tv, go tp)
+    | Type.ForallRow (tv, tp) ->
         (* See above *)
-        ForallRow (tv, go tp)
-    | Primitive p ->
-      Primitive p
+        Type.ForallRow (tv, go tp)
+    | Type.Primitive p ->
+      Type.Primitive p
   in
   go
 
 
 let substitute_row_evar ev ~replace_with =
   let rec go = function
-    | Record (r, rt) ->
+    | Type.Record (r, rt) ->
         let rt' = match rt with
           | Some (Tail_evar ev') when Int.(equal ev' ev) -> Some replace_with
           | _ -> None
-        in Record ((List.map @@ Pair.map2 go) r, rt')
-    | Variant () ->
-        Variant ()
-    | Function (t1, t2) ->
-        Function (go t1, go t2)
-    | EVar ev' ->
-      EVar ev'
-    | TVar tv ->
-        TVar tv
-    | Forall (tv, tp) ->
+        in Type.Record ((List.map @@ Pair.map2 go) r, rt')
+    | Type.Variant () ->
+        Type.Variant ()
+    | Type.Function (t1, t2) ->
+        Type.Function (go t1, go t2)
+    | Type.EVar ev' ->
+      Type.EVar ev'
+    | Type.TVar tv ->
+        Type.TVar tv
+    | Type.Forall (tv, tp) ->
         (* It's probably OK since we make unique identifiers, but we probably
         should check if we're replacing with a TVar and avoid going into the
         body of the Forall if the TVars match. *)
-        Forall (tv, go tp)
-    | ForallRow (tv, tp) ->
+        Type.Forall (tv, go tp)
+    | Type.ForallRow (tv, tp) ->
         (* See above *)
-        ForallRow (tv, go tp)
-    | Primitive p ->
-      Primitive p
+        Type.ForallRow (tv, go tp)
+    | Type.Primitive p ->
+      Type.Primitive p
   in
   go
 
 
 (* quantifies over all the given evars *)
 
-let quantify (evars : int list) (tp : t) : t =
+let quantify (evars : int list) (tp : Type.t) : Type.t =
   let quantify_single ev tp' =
     let tv = "a" ^ Int.to_string ev in
-    Forall (tv, substitute_evar ev ~replace_with:(TVar tv) tp')
+    Type.Forall (tv, substitute_evar ev ~replace_with:(Type.TVar tv) tp')
   in
   List.fold_right quantify_single evars tp
 
-let quantify_row (row_evars : int list) (tp : t) : t =
+let quantify_row (row_evars : int list) (tp : Type.t) : Type.t =
   let quantify_single ev tp' =
     let tv = "a" ^ Int.to_string ev in
-    ForallRow (tv, substitute_row_evar ev ~replace_with:(Tail_tvar tv) tp')
+    Type.ForallRow (tv, substitute_row_evar ev ~replace_with:(Type.Tail_tvar tv) tp')
   in
   List.fold_right quantify_single row_evars tp
 
@@ -515,7 +449,7 @@ let rec infer_top ctx annotated =
   ({ resolved with tp = quantify (free_evars new_ctx) resolved.tp }, new_ctx)
 
 
-and infer ctx (annotated : Ast.Expr.Untyped.t) : t Ast.Expr.t * context =
+and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * context =
   match annotated.Ast.Expr.expr with
   (* Var  *)
   | Ast.Expr.Var v ->
@@ -724,10 +658,10 @@ and infer_ext ctx rcd_head tp =
     let subst_forall_inner = substitute_row tv ~replace_with:ev_tail forall_inner in
     infer_ext subst_ctx rcd_head subst_forall_inner
   (* TODO Need to replace the label if it already exists *)
-  | Record (r, rt) -> (Record (rcd_head :: r, rt), ctx)
+  | Record (r, rt) -> (Type.Record (rcd_head :: r, rt), ctx)
   | EVar ev ->
     let fresh_rt, fresh_rt_ce, _, ctx1 = fresh_row_evar ctx in
-    let rcd_tp = (Record ([], Some fresh_rt)) in
+    let rcd_tp = (Type.Record ([], Some fresh_rt)) in
     let ctx2 = insert_before_in_ctx (Context_evar ev) [fresh_rt_ce] ctx1 in
     let ctx3 = solve_evar ev rcd_tp ctx2 in
     (* This is like rcd_tp, but extended with the rcd_head given *)

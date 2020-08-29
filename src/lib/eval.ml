@@ -2,40 +2,7 @@ open Containers
 
 module Scope = Map.Make(String)
 
-type var_name = string
-
-type primitive =
-  | Int of Z.t
-
-type t =
-  | Record of (string * t) list
-  | Function of (t -> t)
-  | Variant of string * (string * t) list
-  | Primitive of primitive
-
-let rec pp ppf value =
-  let open Fmt in
-  ( match value with
-    | Record r ->
-      const pp_record r
-    | Function _ ->
-      any "<function>"
-    | Variant (v, r) ->
-      const string v ++ const pp_record r
-    | Primitive p ->
-      match p with
-      | Int n -> const Z.pp_print n
-  )
-    ppf
-    ()
-and pp_record ppf =
-  let open Format in
-  (list ~sep:(return ",@ ") (pair ~sep:(return "@ =@ ") string pp)
-   |> within "{" "}"
-  ) ppf
-
-
-let rec evaluate (sc : t Scope.t) expr =
+let rec evaluate (sc : Value.t Scope.t) expr =
   match expr.Ast.Expr.expr with
   | Assign (v, e, b) ->
     evaluate (Scope.add v (evaluate sc e) sc) b
@@ -67,26 +34,3 @@ let rec evaluate (sc : t Scope.t) expr =
       (match l with
        | Int n -> Int n
       )
-    
-
-(* let rec evaluate ctx annotated =
- *   let open Ast.Expr in
- *   match annotated.expr with
- *   | Function (var, e) ->
- *       Value_function
- *         (fun val ->
- *           evaluate
- *             { lookup_table = LookupTable.add var val ctx.lookup_table }
- *             e)
- *   | Application (f, e) ->
- *     ( match evaluate ctx f with
- *     | Value_function fn -> f (evaluate ctx e)
- *     | _ ->
- *         failwith "not a function" )
- *   | Record r ->
- *       Value_record (evaluate_record ctx r)
- *   | Variant (s, r) ->
- *       Value_variant (s, evaluate_record ctx r)
- *   | Var s ->
- *       LookupTable.find s ctx.lookup_table *)
-and evaluate_record ctx = List.map (Pair.map2 (evaluate ctx))
