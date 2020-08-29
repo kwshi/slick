@@ -26,6 +26,8 @@ module Expr = struct
     | Function of (var_name * 't)
     | Application of ('t * 't)
     | Record of 't record
+    | Projection of ('t * label)
+    | Extension of (label * 't * 't)
     | Variant of (string * 't record)
     | Var of var_name
   [@@deriving show]
@@ -54,6 +56,8 @@ module Expr = struct
     let make_variant s r = make @@ Variant (s, r)
 
     let make_var v = make @@ Var v
+
+    let make_assign v e b = make @@ Assign (v, e, b)
   end
 end
 

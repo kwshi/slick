@@ -41,11 +41,20 @@ let rec evaluate (sc : t Scope.t) expr =
     )
   | Record r ->
     Record (r |> List.map @@ Pair.map2 @@ evaluate sc)
+  | Projection (r, lbl) ->
+    (match evaluate sc r with
+     | Record r' -> snd @@ List.find (fun (lbl', _) -> String.(equal lbl lbl')) r'
+     | _ -> assert false
+    )
+  | Extension (lbl, e, r) ->
+    (match evaluate sc r with
+     | Record r' -> Record ((lbl, evaluate sc e) :: r')
+     | _ -> assert false
+    )
   | Variant (v, r) ->
     Variant (v, r |> List.map @@ Pair.map2 @@ evaluate sc)
   | Var v ->
     Scope.find v sc
-    
 
 (* let rec evaluate ctx annotated =
  *   let open Ast.Expr in

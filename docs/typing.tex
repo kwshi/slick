@@ -134,9 +134,11 @@
     \text{variables} & \var & & \\
     \text{expressions} & \expr & \define & \\
     & \text{records} & | & \rcd{\lbl_1=\expr_1, \lbl_2=\expr_2,\dots} \\
-    & \text{functions} & | & \backslash \rcd{\lbl_1:\tp_1, \lbl_2:\tp_2,\dots}
+    & \text{functions} & | & \backslash \var
                            \arrow \expr \\
     & \text{applications} & | & \expr_1 \expr_2 \\
+    & \text{sequences} & | & \expr_1 ; \expr_2 \\
+    & \text{assignments} & | & \var := \expr \\
     & \text{annotations} & | & \expr : \tp
   \end{array}
 \]
@@ -171,16 +173,16 @@
   \spc
   \deduct
   [(Function)]
-  {\derives {\var_1=\tp_1,\var_2=\tp_2,\dots,\declCtx} \expr \tp}
-  {\derives \declCtx {\backslash \rcd{\var_1: \tp_1, \var_2 : \tp_2, \dots} \arrow \expr} { \rcd{\var_1: \tp_1, \var_2 : \tp_2, \dots}
-      \arrow \tp}}
+  {\derives {\var = \tp, \declCtx} \expr \tpalt}
+  {\derives \declCtx {\backslash \var \arrow \expr} { \tp
+      \arrow \tpalt}}
 \]
 \[
   \deduct
   [(App)]
-  {\derives \declCtx {\expr_1} {\rcd{\var_1=\tp_1,\var_2=\tp_2,\dots} \arrow \tp} \spc \derives \declCtx
-    {\expr_2} {\rcd{\var_1=\tp_1,\var_2=\tp_2,\dots}}}
-  {\derives \declCtx {\expr_1 \expr_2} \tp}
+  {\derives \declCtx {\expr_1} {\tp \arrow \tpalt} \spc \derives \declCtx
+    {\expr_2} {\tp}}
+  {\derives \declCtx {\expr_1 \expr_2} \tpalt}
 \]
 
 \subsubsection{Records}
@@ -282,16 +284,17 @@ synthesizes output type \(C\) and context \(\ctxalt\).
 
 \[
   \deduct[(\(\to\)I)]
-  { \subsumes \ctx {\rcd{v_1:\tp_1,\dots}} {\rcd{v_1:\tpalt_1,\dots}} \ctxalt \spc \check{\ctxalt, \var_1 : \tpalt_1, \dots}{e}{\tpaltt}{\ctxaltt, \var_1 : \tpalt_1,
-      \dots,  \ctxaltt'} }
-  { \check{\ctx}{\backslash \rcd{\var_1:\tp_1,\dots} \arrow e}{ \rcd{\var_1:\tpalt_1,\dots} \arrow \tpaltt}{\ctxaltt} }
+  { \check{\ctx, \var : \tp}{e}{\tpalt}{\ctxalt, \var : \tp, \ctxaltt} }
+  { \check{\ctx}{\backslash \var \arrow e}{ \tp \arrow \tpalt}{\ctxalt} }
 \]
 
 \[
-  \deduct[(\(\to\)I\(\implies\))]
-  { \check{\ctx, \evar, \var_1 : \tp_1, \dots}{e}{\evar}{\ctxalt, \var_1 :
-      \tp_1, \dots,  \ctxaltt} }
-  { \synth{\ctx}{\backslash \rcd{\var_1:\tp_1,\dots} \arrow e}{{\rcd{\var_1:\tp_1,\dots}} \arrow \evar}{\ctxalt} }
+  \deduct[(\(\to\)I\(\implies\))] { \check{\ctx, \marker\evar, \evar, \evaralt,
+      \var : \evar}{e}{\evaralt}{\ctxalt, \marker\evar, \ctxaltt} \spc \tau =
+    \apply \ctxalt (\evar \arrow \evaralt) \spc \overline\evar =
+    \text{unsolved}(\tau)} { \synth{\ctx}{\backslash \var \arrow e}{{\forall
+        \overline{\upalpha}. \tpm[\overline \evar \mapsto \overline
+        \upalpha]}}{\ctxalt} }
 \]
 
 \[

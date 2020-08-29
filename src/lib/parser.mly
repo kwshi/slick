@@ -35,7 +35,7 @@ function_type:
   | r = record_type; ARROW; t = type_ { (r, t) }
 
 expr:
-  | v = LOWER_IDENT; WALRUS; e = expr; SEMICOLON; b = expr { Ast.Expr.Assign (v, e, b) }
+  | v = LOWER_IDENT; WALRUS; e = expr; SEMICOLON; b = expr { Expr.make_assign v e b }
   | f = function_expr { f }
   | a = function_app { a }
   | s = UPPER_IDENT; r = record_expr { Expr.make_variant s r }

@@ -283,6 +283,12 @@ let apply_ctx_expr ctx =
           Expr.Variant (v, List.map (Pair.map2 go) r)
       | Expr.Var v ->
           Expr.Var v
+      | Expr.Assign (v, e1, e2) ->
+          Expr.Assign (v, go e1, go e2)
+      | Expr.Projection (r, lbl) ->
+          Expr.Projection (go r, lbl)
+      | Expr.Extension (lbl, e, r) ->
+          Expr.Extension (lbl, go e, go r)
     in
     { expr; tp }
   in
@@ -463,6 +469,14 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : t Ast.Expr.t * context =
   (* TODO *)
   | Ast.Expr.Variant _ ->
       ({ expr = Ast.Expr.Variant ("", []); tp = Variant () }, ctx)
+  | Ast.Expr.Assign (var, e1, e2) ->
+      (* check if var is in the context. if it is, check e1 against its type. otherwise, infer the type of e1 - and use that as var's assignment. *)
+      let e1_inferred, new_ctx = infer ctx e1 in
+      let e1_inferred' = apply_ctx_expr new_ctx e1_inferred in
+      let assign_ctx = append_ctx [Context_var (var, e1_inferred'.tp)] new_ctx in
+      let e2_inferred, new_ctx' = infer assign_ctx e2 in
+      ( { expr = Ast.Expr.Assign (var, e1_inferred', e2_inferred); tp = e2_inferred.tp}, new_ctx')
+  | _ -> failwith "infer: unimplemented"
 
 
 and check ctx annotated tp =
