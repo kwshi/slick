@@ -35,7 +35,7 @@ module Expr = struct
     | Variant of (string * 't)
     | Var of var_name
     | Literal of literal
-    | Case of 't * (string * string * 't) list
+    | Case of ('t * (string * string * 't) list)
 
   and 'annotated_expr record = (label * 'annotated_expr) list
 

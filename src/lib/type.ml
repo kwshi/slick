@@ -42,7 +42,7 @@ let rec pp ppf t =
     |> Format.within "{" "}"
   | Variant r ->
     const pp_row r
-    |> Format.within "{" "}"
+    |> Format.within "⟨" "⟩"
   | Function (a, b) ->
       any "(" ++ const pp a ++ any "@ ->@ " ++ const pp b ++ any ")"
   | EVar ev ->
@@ -50,9 +50,9 @@ let rec pp ppf t =
   | TVar tv ->
       const string tv
   | Forall (a, e) ->
-      any "forall@ " ++ const string a ++ any ".@ " ++ const pp e
+      any "∀@ " ++ const string a ++ any ".@ " ++ const pp e
   | ForallRow (a, e) ->
-      any "forall_row@ " ++ const string a ++ any ".@ " ++ const pp e
+      any "ꓤ@ " ++ const string a ++ any ".@ " ++ const pp e
   | Mu (v, e) ->
       any "µ@ " ++ const string v ++ any ".@ " ++ const pp e
   | Primitive p -> (

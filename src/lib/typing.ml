@@ -21,10 +21,22 @@ let iter_row f = fst %> List.iter (snd %> f)
 
 (* Debug functions *)
 
-let print_ctx ctx =
-  List.to_string Ctx.show_element ctx.Ctx.context |> print_endline
+let debug = true
 
-let print_tp tp = Type.pp Format.stdout tp ; Format.print_newline ()
+let print_debug str =
+  if debug
+  then print_endline str
+  else ()
+
+let print_ctx ctx =
+  if debug
+  then List.to_string Ctx.show_element ctx.Ctx.context |> print_endline
+  else ()
+
+let print_tp tp =
+  if debug
+  then (Type.pp Format.stdout tp ; Format.print_newline ())
+  else ()
 
 (* Smart constructors for making fresh evars. Returns a tuple consisting of
   ( var as a type
@@ -145,8 +157,8 @@ let substitute_row tv ~replace_with =
             match rt with
             | Some (Type.Tail_tvar tv') when String.(equal tv' tv) ->
                 Some replace_with
-            | _ ->
-                None
+            | rt ->
+                rt
           in
           ((List.map @@ Pair.map2 go) r, rt') in
     function
@@ -204,20 +216,19 @@ let substitute_evar ev ~replace_with =
 
 let substitute_row_evar ev ~replace_with =
   let rec go =
-    let substitute_row_evar (r,rt) =
+    let subst_row (r,rt) =
         let rt' =
           match rt with
           | Some (Type.Tail_evar ev') when Int.(equal ev' ev) ->
               Some replace_with
-          | _ ->
-              None
-        in
+          | rt -> rt
+ in
         ((List.map @@ Pair.map2 go) r, rt') in
     function
     | Type.Record r ->
-        Type.Record (substitute_row_evar r)
+        Type.Record (subst_row r)
     | Type.Variant r ->
-        Type.Variant (substitute_row_evar r)
+        Type.Variant (subst_row r)
     | Type.Function (t1, t2) ->
         Type.Function (go t1, go t2)
     | Type.EVar ev' ->
@@ -252,14 +263,14 @@ let make_recursive ev (tp : Type.t) : Type.t =
 
 let quantify (evars : int list) (tp : Type.t) : Type.t =
   let quantify_single ev tp' =
-    let tv = "a" ^ Int.to_string ev in
+    let tv = "α" ^ Int.to_string ev in
     Type.Forall (tv, substitute_evar ev ~replace_with:(Type.TVar tv) tp')
   in
   List.fold_right quantify_single evars tp
 
 let quantify_row (row_evars : int list) (tp : Type.t) : Type.t =
   let quantify_single ev tp' =
-    let tv = "a" ^ Int.to_string ev in
+    let tv = "ρ" ^ Int.to_string ev in
     Type.ForallRow
       (tv, substitute_row_evar ev ~replace_with:(Type.Tail_tvar tv) tp')
   in
@@ -290,7 +301,10 @@ let over_forall_row_evar ctx (fn : Ctx.t -> Type.t -> 'a) (tv, forall_inner) =
 
 let rec infer_top ctx annotated =
   let inferred, new_ctx = infer ctx annotated in
+  (* print_tp inferred.tp;
+   * print_ctx new_ctx; *)
   let resolved = Ctx.apply_ctx_expr new_ctx inferred in
+  (* print_tp resolved.tp; *)
   ({resolved with tp= quantify (Ctx.free_evars new_ctx) resolved.tp}, new_ctx)
 
 and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
@@ -332,6 +346,9 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
           { Ast.Expr.expr= Ast.Expr.Function (var, e_checked)
           ; Ast.Expr.tp= Type.Function (arg_ev_tp, ret_ev_tp) }
       in
+      (* print_string "infer function: ";
+       * print_tp fun_expr.tp;
+       * print_ctx new_ctx; *)
       let quantified_fun_expr =
         { fun_expr with
           tp=
@@ -348,9 +365,12 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
         infer_app new_ctx e1_inferred'.tp e2
       in
       ({expr= Application (e1_inferred', e2_inferred); tp= output_tp}, new_ctx')
-  (* TODO *)
-  | Ast.Expr.Variant _ ->
-      failwith "help"
+  | Ast.Expr.Variant (lbl, e) ->
+      let e_inferred, new_ctx = infer ctx e in
+      let e_inferred' = Ctx.apply_ctx_expr new_ctx e_inferred in
+      let open_tail, open_tail_ce, _, tail_ctx = Ctx.fresh_row_evar new_ctx in
+      let ctx' = Ctx.append_ctx [open_tail_ce] tail_ctx in
+      ({expr = Ast.Expr.Variant (lbl, e_inferred'); tp = Type.Variant ([(lbl, e_inferred'.tp)],Some open_tail)}, ctx')
   | Ast.Expr.Assign (var, e1, e2) ->
       (* TODO for assignments that involve updates: check if var is in the context. if it is, check e1 against its type. otherwise, infer the type of e1 - and use that as var's assignment. *)
       let e1_inferred, new_ctx = infer ctx e1 in
@@ -380,9 +400,54 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
       ( { expr= Ast.Expr.Literal l
         ; tp= Primitive (match l with Ast.Expr.Int _ -> Int) }
       , ctx )
-  | Ast.Expr.Case (e, _cs) ->
-    let _e', _ctx' = infer ctx e in
-    failwith "helpme pls"
+  | Ast.Expr.Case (e, cs) ->
+    let e_inferred, ctx' = infer ctx e in
+    let e_inferred' = Ctx.apply_ctx_expr ctx' e_inferred in
+    let lbls = List.map (fun (lbl, _, _) -> lbl) cs in
+    let make_fresh_evars lst ctx =
+      List.fold_right
+        (fun _ (ev_tps, ev_ces, ctx) ->
+          let ev_tp, ev_ce, _, ctx' = Ctx.fresh_evar ctx in
+          (ev_tp :: ev_tps, ev_ce :: ev_ces, ctx'))
+        lst ([], [], ctx)
+    in
+    let case_variant_evs, case_variant_ces, ctx1 = make_fresh_evars lbls ctx' in
+    let marker, ctx2 = Ctx.fresh_marker ctx1 in
+    let ctx3 = Ctx.append_ctx (marker :: case_variant_ces) ctx2 in
+    (* We create this variant whose types are evars (which we never inspect, so we don't care about) in order to force the input variant to conform with its shape. Right now variants are concrete, but in the future when we add defaults to them, we'll make the tail an evar to make case row polymorphic. *)
+    (* TODO allow cases to have duplicate labels -- will need to be added when we add pattern matching. this means we can't use the subsumes trick below. *)
+    let case_variant = Type.Variant (List.map2 (fun lbl ev_tp -> (lbl, ev_tp)) lbls case_variant_evs, None) in
+    (* Get rid of any resolution that happens with the EVars -- this should be safe and will help clean up the context. If we get errors, we can remove the drop_ctx_from and see if that helps. *)
+    let ctx4 = subsumes ctx3 e_inferred'.tp case_variant |> Ctx.drop_ctx_from marker in
+    let input_variant_tp = Ctx.apply_ctx ctx4 e_inferred'.tp in
+    (* print_tp input_variant_tp; *)
+    match input_variant_tp with
+    (* This should be closed, for now. *)
+    | Type.Variant (v, None) ->
+      let rm = RowMap.of_list v in
+      let ret_ev_tp, ret_ev_ce, _, ctx5 = Ctx.fresh_evar ctx4 in
+      let ctx6 = Ctx.append_ctx [ret_ev_ce] ctx5 in
+      let ctx7, cs_inferred  = List.fold_map
+        (fun ctx (lbl, var, case_inner) ->
+           (* This lookup should never fail *)
+           (* Need to apply context in case any solutions happened in previous parts *)
+           let var_tp = Ctx.apply_ctx ctx @@ RowMap.find lbl rm in
+           (* print_string @@ var ^ ": ";
+            * print_tp var_tp; *)
+           let ret_tp = Ctx.apply_ctx ctx ret_ev_tp in
+           let ctx' = Ctx.append_ctx [Ctx.Var (var, var_tp)] ctx in
+           let case_inner_checked, new_ctx = check ctx' case_inner ret_tp in
+           (* print_tp @@ Ctx.apply_ctx new_ctx var_tp; *)
+           (Ctx.drop_ctx_from (Ctx.Var (var, var_tp)) new_ctx, (lbl, var, case_inner_checked)))
+        ctx6
+        cs
+      in
+      let case_expr = Ctx.apply_ctx_expr ctx7 {expr = Ast.Expr.Case (e_inferred', cs_inferred); tp= ret_ev_tp} in
+      (* print_string "Case:\n";
+       * print_tp case_expr.tp;
+       * print_ctx ctx7; *)
+      (case_expr, ctx7)
+    | _ -> failwith "infer: case, got an input that wasn't a variant (this should've failed earlier)."
 
 and check ctx annotated tp =
   (* print_string "check:\n";
@@ -805,12 +870,19 @@ and row_tail_subsumes ctx tail1 missingFrom1 tail2 missingFrom2 =
     when String.(equal tv1 tv2) ->
       ctx
   | Some (Tail_evar ev1), _, Some (Tail_evar ev2), _ ->
+      (* print_string @@ "row tail subsumes: ev" ^ Int.to_string ev1 ^ " and ev" ^ Int.to_string ev2;
+       * print_newline ();
+       * print_ctx ctx; *)
       row_tail_subsumes_ev ctx ev1 missingFrom1 ev2 missingFrom2
   (* The second tail must not be an evar otherwise the reach case would match, thus it must have no missing elements to add to it.  *)
   | Some (Tail_evar ev1), _, _, [] ->
+      (* print_string @@ "row tail subsumes: " ^ Int.to_string ev1 ^ " on a non-evar.";
+       * print_newline (); *)
       solve_row_evar ev1 (missingFrom1, tail2) ctx
   (* The first tail must not be an evar otherwise the reach case would match, thus it must have no missing elements to add to it. *)
   | _, [], Some (Tail_evar ev2), _ ->
+      (* print_string @@ "row tail subsumes: " ^ Int.to_string ev2 ^ " on a non-evar.";
+       * print_newline (); *)
       solve_row_evar ev2 (missingFrom2, tail1) ctx
   | None, [], None, [] ->
       ctx
