@@ -348,9 +348,12 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
         infer_app new_ctx e1_inferred'.tp e2
       in
       ({expr= Application (e1_inferred', e2_inferred); tp= output_tp}, new_ctx')
-  (* TODO *)
-  | Ast.Expr.Variant _ ->
-      failwith "help"
+  | Ast.Expr.Variant (lbl, e) ->
+      let e_inferred, new_ctx = infer ctx e in
+      let e_inferred' = Ctx.apply_ctx_expr new_ctx e_inferred in
+      let open_tail, open_tail_ce, _, tail_ctx = Ctx.fresh_row_evar new_ctx in
+      let ctx' = Ctx.append_ctx [open_tail_ce] tail_ctx in
+      ({expr = Ast.Expr.Variant (lbl, e_inferred'); tp = Type.Variant ([(lbl, e_inferred'.tp)],Some open_tail)}, ctx')
   | Ast.Expr.Assign (var, e1, e2) ->
       (* TODO for assignments that involve updates: check if var is in the context. if it is, check e1 against its type. otherwise, infer the type of e1 - and use that as var's assignment. *)
       let e1_inferred, new_ctx = infer ctx e1 in
@@ -380,9 +383,47 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
       ( { expr= Ast.Expr.Literal l
         ; tp= Primitive (match l with Ast.Expr.Int _ -> Int) }
       , ctx )
-  | Ast.Expr.Case (e, _cs) ->
-    let _e', _ctx' = infer ctx e in
-    failwith "helpme pls"
+  | Ast.Expr.Case (e, cs) ->
+    let e_inferred, ctx' = infer ctx e in
+    let e_inferred' = Ctx.apply_ctx_expr ctx' e_inferred in
+    let lbls = List.map (fun (lbl, _, _) -> lbl) cs in
+    let make_fresh_evars lst ctx =
+      List.fold_right
+        (fun _ (ev_tps, ev_ces, ctx) ->
+          let ev_tp, ev_ce, _, ctx' = Ctx.fresh_evar ctx in
+          (ev_tp :: ev_tps, ev_ce :: ev_ces, ctx'))
+        lst ([], [], ctx)
+    in
+    let case_variant_evs, case_variant_ces, ctx1 = make_fresh_evars lbls ctx' in
+    let marker, ctx2 = Ctx.fresh_marker ctx1 in
+    let ctx3 = Ctx.append_ctx (marker :: case_variant_ces) ctx2 in
+    (* We create this variant whose types are evars (which we never inspect, so we don't care about) in order to force the input variant to conform with its shape. Right now variants are concrete, but in the future when we add defaults to them, we'll make the tail an evar to make case row polymorphic. *)
+    (* TODO allow cases to have duplicate labels -- will need to be added when we add pattern matching. this means we can't use the subsumes trick below. *)
+    let case_variant = Type.Variant (List.map2 (fun lbl ev_tp -> (lbl, ev_tp)) lbls case_variant_evs, None) in
+    (* Get rid of any resolution that happens with the EVars -- this should be safe and will help clean up the context. If we get errors, we can remove the drop_ctx_from and see if that helps. *)
+    let ctx4 = subsumes ctx3 e_inferred'.tp case_variant |> Ctx.drop_ctx_from marker in
+    let input_variant_tp = Ctx.apply_ctx ctx4 e_inferred'.tp in
+    match input_variant_tp with
+    (* This should be closed, for now. *)
+    | Type.Variant (v, None) ->
+      let rm = RowMap.of_list v in
+      let ret_ev_tp, ret_ev_ce, _, ctx5 = Ctx.fresh_evar ctx4 in
+      let ctx6 = Ctx.append_ctx [ret_ev_ce] ctx5 in
+      let ctx7, cs_inferred  = List.fold_map
+        (fun ctx (lbl, var, case_inner) ->
+           (* This lookup should never fail *)
+           (* Need to apply context in case any solutions happened in previous parts *)
+           let var_tp = Ctx.apply_ctx ctx @@ RowMap.find lbl rm in
+           let ret_tp = Ctx.apply_ctx ctx ret_ev_tp in
+           let ctx' = Ctx.append_ctx [Ctx.Var (var, var_tp)] ctx in
+           let case_inner_checked, new_ctx = check ctx' case_inner ret_tp in
+           (new_ctx, (lbl, var, case_inner_checked)))
+        ctx6
+        cs
+      in
+      let case_expr = Ctx.apply_ctx_expr ctx7 {expr = Ast.Expr.Case (e_inferred', cs_inferred); tp= ret_ev_tp} in
+      (case_expr, ctx7)
+    | _ -> failwith "infer: case, got an input that wasn't a variant (this should've failed earlier)."
 
 and check ctx annotated tp =
   (* print_string "check:\n";

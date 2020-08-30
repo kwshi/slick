@@ -39,7 +39,7 @@ let rec pp ppf value =
   | Function _ ->
       any "<function>"
   | Variant (v, e) ->
-      const string v ++ const pp e
+      const string v ++ Fmt.sp ++ const pp e
   | Primitive p ->
       const Primitive.pp p )
     ppf ()

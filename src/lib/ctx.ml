@@ -32,6 +32,10 @@ let fresh_row_evar ctx =
   , ctx.next_var
   , {ctx with next_var= ctx.next_var + 1} )
 
+let fresh_marker ctx =
+  ( Marker (Row_evar ctx.next_var)
+  , {ctx with next_var= ctx.next_var + 1} )
+
 let over_context f ctx =
   (* print_string (List.to_string show_context_element @@ ctx.context); print_newline (); *)
   {ctx with context= f ctx.context}
@@ -127,8 +131,8 @@ let apply_ctx ctx =
         Type.Primitive p
     | Type.TVar tv ->
         Type.TVar tv
-    | Type.Variant _ ->
-      failwith "aaa"
+    | Type.Variant r ->
+      Type.Variant (row r)
   and row (l, t) =
     let l' = List.map (Pair.map2 go) l in
     match t with
