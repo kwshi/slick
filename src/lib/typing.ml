@@ -236,12 +236,9 @@ let substitute_row_evar ev ~replace_with =
   in
   go
 
-let unfold_mu (tp : Type.t) : Type.t =
-  match tp with
-  | Mu (tv, mu_inner) ->
-      substitute tv ~replace_with:tp mu_inner
-  | _ ->
-      failwith @@ "unfold_mu: got unexpected type (type should only be Mu)."
+let unfold_mu (tv, mu_inner) : Type.t =
+  let tp = Type.Mu (tv, mu_inner) in
+  substitute tv ~replace_with:tp mu_inner
 
 let make_recursive ev (tp : Type.t) : Type.t =
   let tv = "t" ^ Int.to_string ev in
@@ -270,6 +267,19 @@ let quantify_all_free_evars ctx tp =
   let fvs = Ctx.free_evars ctx in
   let row_fvs = Ctx.free_row_evars ctx in
   quantify_row row_fvs @@ quantify fvs tp
+
+
+let over_forall_evar ctx (fn : Ctx.t -> Type.t -> 'a) (tv, forall_inner) =
+      let ev_tp, ev_ce, _, ctx' = Ctx.fresh_evar ctx in
+      let subst_ctx = Ctx.append_ctx [ev_ce] ctx' in
+      let subst_forall_inner = substitute tv ~replace_with:ev_tp forall_inner in
+      fn subst_ctx subst_forall_inner
+
+let over_forall_row_evar ctx (fn : Ctx.t -> Type.t -> 'a) (tv, forall_inner) =
+      let ev_tail, ev_ce, _, ctx' = Ctx.fresh_row_evar ctx in
+      let subst_ctx = Ctx.append_ctx [ev_ce] ctx' in
+      let subst_forall_inner = substitute_row tv ~replace_with:ev_tail forall_inner in
+      fn subst_ctx subst_forall_inner
 
 (* INFERENCE and CHECKING *)
 
@@ -392,7 +402,7 @@ and check ctx annotated tp =
       ( {expr= Function (var, checked_e); tp= Function (arg_tp, return_tp)}
       , Ctx.drop_ctx_from (Ctx.Var (var, arg_tp)) new_ctx )
   (* <= Mu *)
-  | _, (Mu _ as mu) ->
+  | _, Mu mu ->
       check ctx annotated (unfold_mu mu)
   (* Sub *)
   | _ ->
@@ -408,19 +418,9 @@ and infer_app ctx tp e1 =
    * print_ctx ctx; *)
   match tp with
   (* Forall App *)
-  | Forall (tv, forall_inner) ->
-      let ev_tp, ev_ce, _, ctx' = Ctx.fresh_evar ctx in
-      let subst_ctx = Ctx.append_ctx [ev_ce] ctx' in
-      let subst_forall_inner = substitute tv ~replace_with:ev_tp forall_inner in
-      infer_app subst_ctx subst_forall_inner e1
+  | Forall fa -> over_forall_evar ctx (fun ctx' forall_inner -> infer_app ctx' forall_inner e1) fa
   (* Forall row App *)
-  | ForallRow (tv, forall_inner) ->
-      let ev_tail, ev_ce, _, ctx' = Ctx.fresh_row_evar ctx in
-      let subst_ctx = Ctx.append_ctx [ev_ce] ctx' in
-      let subst_forall_inner =
-        substitute_row tv ~replace_with:ev_tail forall_inner
-      in
-      infer_app subst_ctx subst_forall_inner e1
+  | ForallRow far -> over_forall_evar ctx (fun ctx' forall_inner -> infer_app ctx' forall_inner e1) far
   (* -> App *)
   | Function (arg_tp, return_tp) ->
       let checked_e1, new_ctx = check ctx e1 arg_tp in
@@ -438,7 +438,7 @@ and infer_app ctx tp e1 =
       in
       let checked_e1, new_ctx = check solved_ctx e1 arg_ev_tp in
       (checked_e1, ret_ev_tp, new_ctx)
-  | Mu (_, _) as mu ->
+  | Mu mu ->
       infer_app ctx (unfold_mu mu) e1
   | _ ->
       failwith "infer_app: Got unexpected type."
@@ -446,19 +446,9 @@ and infer_app ctx tp e1 =
 and infer_proj ctx tp lbl =
   match tp with
   (* Forall Prj *)
-  | Forall (tv, forall_inner) ->
-      let ev_tp, ev_ce, _, ctx' = Ctx.fresh_evar ctx in
-      let subst_ctx = Ctx.append_ctx [ev_ce] ctx' in
-      let subst_forall_inner = substitute tv ~replace_with:ev_tp forall_inner in
-      infer_proj subst_ctx subst_forall_inner lbl
-  (* Forall Row Prj *)
-  | ForallRow (tv, forall_inner) ->
-      let ev_tail, ev_ce, _, ctx' = Ctx.fresh_row_evar ctx in
-      let subst_ctx = Ctx.append_ctx [ev_ce] ctx' in
-      let subst_forall_inner =
-        substitute_row tv ~replace_with:ev_tail forall_inner
-      in
-      infer_proj subst_ctx subst_forall_inner lbl
+  | Forall fa -> over_forall_evar ctx (fun ctx' forall_inner -> infer_proj ctx' forall_inner lbl) fa
+  (* Forall RowPrj *)
+  | ForallRow far -> over_forall_evar ctx (fun ctx' forall_inner -> infer_proj ctx' forall_inner lbl) far
   (* Rcd Prj *)
   | tp ->
       lookup_row ctx tp lbl
@@ -506,18 +496,10 @@ and lookup_row ctx tp lbl =
 
 and infer_ext ctx rcd_head tp =
   match tp with
-  | Forall (tv, forall_inner) ->
-      let ev_tp, ev_ce, _, ctx' = Ctx.fresh_evar ctx in
-      let subst_ctx = Ctx.append_ctx [ev_ce] ctx' in
-      let subst_forall_inner = substitute tv ~replace_with:ev_tp forall_inner in
-      infer_ext subst_ctx rcd_head subst_forall_inner
-  | ForallRow (tv, forall_inner) ->
-      let ev_tail, ev_ce, _, ctx' = Ctx.fresh_row_evar ctx in
-      let subst_ctx = Ctx.append_ctx [ev_ce] ctx' in
-      let subst_forall_inner =
-        substitute_row tv ~replace_with:ev_tail forall_inner
-      in
-      infer_ext subst_ctx rcd_head subst_forall_inner
+  (* Forall Ext *)
+  | Forall fa -> over_forall_evar ctx (fun ctx' forall_inner -> infer_ext ctx' rcd_head forall_inner) fa
+  (* Forall Row Ext *)
+  | ForallRow far -> over_forall_evar ctx (fun ctx' forall_inner -> infer_ext ctx' rcd_head forall_inner ) far
   (* TODO Need to replace the label if it already exists *)
   | Record (r, rt) ->
       (Type.Record (rcd_head :: r, rt), ctx)
@@ -575,9 +557,9 @@ and subsumes ctx tp1 tp2 =
       (* Our inductive hypothesis is that inner expansions of the Mu are equal. tv1 and tv2 stand for these inner expansions, so our inductive hypothesis can be stated as tv1 unifying with tv2 whenever the two meet. So we can hack it by just replacing tv2 with tv1 in mu_inner2. *)
       let mu_inner2_ihop = substitute tv2 ~replace_with:(TVar tv1) mu_inner2 in
       subsumes ctx mu_inner1 mu_inner2_ihop
-  | tp1, (Mu _ as mu2) ->
+  | tp1, Mu mu2 ->
       subsumes ctx tp1 (unfold_mu mu2)
-  | (Mu _ as mu1), tp2 ->
+  | Mu mu1, tp2 ->
       subsumes ctx (unfold_mu mu1) tp2
   (* -> *)
   | Function (arg_tp1, return_tp1), Function (arg_tp2, return_tp2) ->
@@ -618,18 +600,7 @@ and instantiateL ctx ev tp =
    * print_ctx ctx; *)
   match tp with
   (* InstLArr *)
-  | Function (arg_tp, ret_tp) ->
-      let arg_ev_tp, arg_ev_ce, arg_ev, ctx' = Ctx.fresh_evar ctx in
-      let ret_ev_tp, ret_ev_ce, ret_ev, ctx'' = Ctx.fresh_evar ctx' in
-      (* The EVar should be unsovled if we find it, so it's safe to use 'Ctx.Evar ev' *)
-      let inserted_ctx =
-        Ctx.insert_before_in_ctx (Ctx.Evar ev) [arg_ev_ce; ret_ev_ce] ctx''
-      in
-      let solved_ctx =
-        solve_evar ev (Function (arg_ev_tp, ret_ev_tp)) inserted_ctx
-      in
-      let new_ctx = instantiateR solved_ctx arg_tp arg_ev in
-      instantiateL new_ctx ret_ev (Ctx.apply_ctx new_ctx ret_tp)
+  | Function fn -> instantiate_fn ctx (fun ctx ev tp -> instantiateR ctx tp ev) instantiateL ev fn
   (* InstLTVar *)
   | TVar tv ->
       solve_evar ev (TVar tv) ctx
@@ -640,36 +611,7 @@ and instantiateL ctx ev tp =
   | EVar ev2 ->
       instantiateReach ctx ev ev2
   (* InstLRcd *)
-  | Record (r, rt) ->
-      let make_fresh_evars lst ctx =
-        List.fold_right
-          (fun _ (ev_tps, ev_ces, evs, ctx) ->
-            let ev_tp, ev_ce, ev, ctx' = Ctx.fresh_evar ctx in
-            (ev_tp :: ev_tps, ev_ce :: ev_ces, ev :: evs, ctx'))
-          lst ([], [], [], ctx)
-      in
-      let fresh_evar_tps, fresh_evar_ces, fresh_evs, ctx1 =
-        make_fresh_evars r ctx
-      in
-      let fresh_rt, fresh_rt_ce, _, ctx2 = Ctx.fresh_row_evar ctx1 in
-      let ctx3 =
-        Ctx.insert_before_in_ctx (Ctx.Evar ev)
-          (fresh_evar_ces @ [fresh_rt_ce])
-          ctx2
-      in
-      let ctx4 =
-        List.fold_right2
-          (fun (_, tp) ev ctx -> instantiateL ctx ev tp)
-          r fresh_evs ctx3
-      in
-      let ctx5 =
-        solve_evar ev
-          (Record
-             ( List.map2 (fun (lbl, _) ev_tp -> (lbl, ev_tp)) r fresh_evar_tps
-             , Some fresh_rt ))
-          ctx4
-      in
-      row_tail_subsumes ctx5 (Some fresh_rt) [] rt []
+  | Record row -> instantiate_row ctx instantiateL (fun tp -> Type.Record tp) ev row
   (* InstLAllR *)
   | Forall (tv, forall_inner) ->
       let ctx' = Ctx.append_ctx [Ctx.Tvar tv] ctx in
@@ -679,13 +621,7 @@ and instantiateL ctx ev tp =
       let ctx' = Ctx.append_ctx [Ctx.Row_tvar tv] ctx in
       instantiateL ctx' ev forall_inner |> Ctx.drop_ctx_from (Ctx.Row_tvar tv)
   (* InstMuR *)
-  | Mu (tv, mu_inner) ->
-      let mu_ev_tp, mu_ev_ce, mu_ev, ctx' = Ctx.fresh_evar ctx in
-      let inserted_ctx =
-        Ctx.insert_before_in_ctx (Ctx.Evar ev) [mu_ev_ce] ctx'
-      in
-      let solved_ctx = solve_evar ev (Mu (tv, mu_ev_tp)) inserted_ctx in
-      instantiateR solved_ctx mu_inner mu_ev
+  | Mu mu -> instantiate_mu ctx instantiateL ev mu
   | Variant () ->
       failwith "instantiateL: variant unimplemented"
 
@@ -695,18 +631,7 @@ and instantiateR ctx tp ev =
    * print_ctx ctx; *)
   match tp with
   (* InstRArr *)
-  | Function (arg_tp, ret_tp) ->
-      let arg_ev_tp, arg_ev_ce, arg_ev, ctx' = Ctx.fresh_evar ctx in
-      let ret_ev_tp, ret_ev_ce, ret_ev, ctx'' = Ctx.fresh_evar ctx' in
-      (* The EVar should be unsovled if we find it, so it's safe to use 'Ctx.Evar ev' *)
-      let inserted_ctx =
-        Ctx.insert_before_in_ctx (Ctx.Evar ev) [arg_ev_ce; ret_ev_ce] ctx''
-      in
-      let solved_ctx =
-        solve_evar ev (Function (arg_ev_tp, ret_ev_tp)) inserted_ctx
-      in
-      let new_ctx = instantiateL solved_ctx arg_ev arg_tp in
-      instantiateR new_ctx (Ctx.apply_ctx new_ctx ret_tp) ret_ev
+  | Function fn -> instantiate_fn ctx instantiateL (fun ctx ev tp -> instantiateR ctx tp ev) ev fn
   (* InstRReach *)
   | EVar ev2 ->
       instantiateReach ctx ev ev2
@@ -717,36 +642,7 @@ and instantiateR ctx tp ev =
   | Primitive p ->
       solve_evar ev (Primitive p) ctx
   (* InstRRcd *)
-  | Record (r, rt) ->
-      let make_fresh_evars lst ctx =
-        List.fold_right
-          (fun _ (ev_tps, ev_ces, evs, ctx) ->
-            let ev_tp, ev_ce, ev, ctx' = Ctx.fresh_evar ctx in
-            (ev_tp :: ev_tps, ev_ce :: ev_ces, ev :: evs, ctx'))
-          lst ([], [], [], ctx)
-      in
-      let fresh_evar_tps, fresh_evar_ces, fresh_evs, ctx1 =
-        make_fresh_evars r ctx
-      in
-      let fresh_rt, fresh_rt_ce, _, ctx2 = Ctx.fresh_row_evar ctx1 in
-      let ctx3 =
-        Ctx.insert_before_in_ctx (Ctx.Evar ev)
-          (fresh_evar_ces @ [fresh_rt_ce])
-          ctx2
-      in
-      let ctx4 =
-        List.fold_right2
-          (fun (_, tp) ev ctx -> instantiateR ctx tp ev)
-          r fresh_evs ctx3
-      in
-      let ctx5 =
-        solve_evar ev
-          (Record
-             ( List.map2 (fun (lbl, _) ev_tp -> (lbl, ev_tp)) r fresh_evar_tps
-             , Some fresh_rt ))
-          ctx4
-      in
-      row_tail_subsumes ctx5 (Some fresh_rt) [] rt []
+  | Record row -> instantiate_row ctx (fun ctx ev tp -> instantiateR ctx tp ev) (fun tp -> Type.Record tp) ev row
   (* InstRAllL *)
   | Forall (tv, forall_inner) ->
       let forall_ev_tp, forall_ev_ce, _, ctx' = Ctx.fresh_evar ctx in
@@ -764,15 +660,67 @@ and instantiateR ctx tp ev =
         ev
       |> Ctx.drop_ctx_from (Ctx.Marker ev_ce)
   (* InstMuL *)
-  | Mu (tv, mu_inner) ->
-      let mu_ev_tp, mu_ev_ce, mu_ev, ctx' = Ctx.fresh_evar ctx in
-      let inserted_ctx =
-        Ctx.insert_before_in_ctx (Ctx.Evar ev) [mu_ev_ce] ctx'
-      in
-      let solved_ctx = solve_evar ev (Mu (tv, mu_ev_tp)) inserted_ctx in
-      instantiateL solved_ctx mu_ev mu_inner
+  | Mu mu -> instantiate_mu ctx (fun ctx ev tp -> instantiateR ctx tp ev) ev mu
   | Variant () ->
       failwith "instantiateR: variant unimplemented"
+
+
+and instantiate_fn ctx argInstFn retInstFn ev (arg_tp, ret_tp) =
+      let arg_ev_tp, arg_ev_ce, arg_ev, ctx' = Ctx.fresh_evar ctx in
+      let ret_ev_tp, ret_ev_ce, ret_ev, ctx'' = Ctx.fresh_evar ctx' in
+      (* The EVar should be unsovled if we find it, so it's safe to use 'Ctx.Evar ev' *)
+      let inserted_ctx =
+        Ctx.insert_before_in_ctx (Ctx.Evar ev) [arg_ev_ce; ret_ev_ce] ctx''
+      in
+      let solved_ctx =
+        solve_evar ev (Function (arg_ev_tp, ret_ev_tp)) inserted_ctx
+      in
+      let new_ctx = argInstFn solved_ctx arg_ev arg_tp in
+      retInstFn new_ctx ret_ev (Ctx.apply_ctx new_ctx ret_tp)
+
+
+
+and instantiate_row ctx instFn tpWrapper ev (r,rt) =
+      let make_fresh_evars lst ctx =
+        List.fold_right
+          (fun _ (ev_tps, ev_ces, evs, ctx) ->
+            let ev_tp, ev_ce, ev, ctx' = Ctx.fresh_evar ctx in
+            (ev_tp :: ev_tps, ev_ce :: ev_ces, ev :: evs, ctx'))
+          lst ([], [], [], ctx)
+      in
+      let fresh_evar_tps, fresh_evar_ces, fresh_evs, ctx1 =
+        make_fresh_evars r ctx
+      in
+      let fresh_rt, fresh_rt_ce, _, ctx2 = Ctx.fresh_row_evar ctx1 in
+      let ctx3 =
+        Ctx.insert_before_in_ctx (Ctx.Evar ev)
+          (fresh_evar_ces @ [fresh_rt_ce])
+          ctx2
+      in
+      let ctx4 =
+        List.fold_right2
+          (fun (_, tp) ev ctx -> instFn ctx ev tp)
+          r fresh_evs ctx3
+      in
+      let ctx5 =
+        solve_evar ev
+          (tpWrapper
+             ( List.map2 (fun (lbl, _) ev_tp -> (lbl, ev_tp)) r fresh_evar_tps
+             , Some fresh_rt ))
+          ctx4
+      in
+      row_tail_subsumes ctx5 (Some fresh_rt) [] rt []
+
+
+
+and instantiate_mu ctx instFn ev (tv, mu_inner) =
+    let mu_ev_tp, mu_ev_ce, mu_ev, ctx' = Ctx.fresh_evar ctx in
+    let inserted_ctx =
+      Ctx.insert_before_in_ctx (Ctx.Evar ev) [mu_ev_ce] ctx'
+    in
+    let solved_ctx = solve_evar ev (Type.Mu (tv, mu_ev_tp)) inserted_ctx in
+    instFn solved_ctx mu_ev mu_inner
+
 
 (* find where ev1 and ev2 are located in the context. Assign the later one to the earlier one.*)
 and instantiateReach ctx ev1 ev2 =

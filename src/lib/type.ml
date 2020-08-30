@@ -18,9 +18,9 @@ type t =
   | Function of (t * t)
   | EVar of int
   | TVar of var_name
-  | Forall of var_name * t
-  | ForallRow of var_name * t
-  | Mu of var_name * t
+  | Forall of (var_name * t)
+  | ForallRow of (var_name * t)
+  | Mu of (var_name * t)
   | Primitive of primitive
 
 and row = (label * t) list * tail option
