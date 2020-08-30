@@ -42,7 +42,7 @@ let rec pp ppf t =
     |> Format.within "{" "}"
   | Variant r ->
     const pp_row r
-    |> Format.within "⟨" "⟩"
+    |> Format.within "⟦" "⟧"
   | Function (a, b) ->
       any "(" ++ const pp a ++ any "@ ->@ " ++ const pp b ++ any ")"
   | EVar ev ->
