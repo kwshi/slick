@@ -14,7 +14,7 @@ type tail = Tail_evar of int | Tail_tvar of var_name
 
 type t =
   | Record of row
-  | Variant of unit
+  | Variant of row
   | Function of (t * t)
   | EVar of int
   | TVar of var_name
@@ -38,9 +38,9 @@ let rec pp ppf t =
   let open Fmt in
   ( match t with
   | Record r ->
-      const pp_row r
-  | Variant () ->
-      any "variant"
+      const (pp_row "{" "}") r
+  | Variant r ->
+      const (pp_row "[|" "|]") r
   | Function (a, b) ->
       any "(" ++ const pp a ++ any "@ ->@ " ++ const pp b ++ any ")"
   | EVar ev ->
@@ -57,10 +57,10 @@ let rec pp ppf t =
     match p with Int -> any "Int" ) )
     ppf ()
 
-and pp_row ppf (es, tl) =
+and pp_row start stop ppf (es, tl) =
   let open Fmt in
-  ( any "{"
+  ( const string start
   ++ const (option ~none:nop (pp_tail ++ any "@ |@ ")) tl
   ++ const (list ~sep:comma (pair ~sep:(any "@ :@ ") string pp)) es
-  ++ any "}" )
+  ++ const string stop )
     ppf ()

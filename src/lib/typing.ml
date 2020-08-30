@@ -93,6 +93,8 @@ let occurs_check ev =
         Int.(ev = ev')
     | Type.Record (r, _rt) ->
         List.exists (snd %> go) r
+    | Type.Variant (r, _rt) ->
+        List.exists (snd %> go) r
     | Type.Forall (_, tp) ->
         go tp
     | Type.ForallRow (_, tp) ->
@@ -103,8 +105,6 @@ let occurs_check ev =
         false
     | Type.Primitive _ ->
         false
-    | Type.Variant () ->
-        failwith "occurs_check: unimplemented"
   in
   go
 
@@ -117,8 +117,8 @@ let substitute tv ~replace_with =
   let rec go = function
     | Type.Record r ->
         Type.Record (Pair.map1 (List.map @@ Pair.map2 go) r)
-    | Type.Variant () ->
-        Type.Variant ()
+    | Type.Variant r ->
+        Type.Variant (Pair.map1 (List.map @@ Pair.map2 go) r)
     | Type.Function (t1, t2) ->
         Type.Function (go t1, go t2)
     | Type.EVar ev ->
@@ -139,18 +139,21 @@ let substitute tv ~replace_with =
   go
 
 let substitute_row tv ~replace_with =
-  let rec go = function
-    | Type.Record (r, rt) ->
-        let rt' =
-          match rt with
-          | Some (Type.Tail_tvar tv') when String.(equal tv' tv) ->
-              Some replace_with
-          | _ ->
-              None
-        in
-        Type.Record ((List.map @@ Pair.map2 go) r, rt')
-    | Type.Variant () ->
-        Type.Variant ()
+  let rec go =
+    let substitute_row (r,rt) =
+          let rt' =
+            match rt with
+            | Some (Type.Tail_tvar tv') when String.(equal tv' tv) ->
+                Some replace_with
+            | _ ->
+                None
+          in
+          ((List.map @@ Pair.map2 go) r, rt') in
+    function
+    | Type.Record r ->
+        Type.Record (substitute_row r)
+    | Type.Variant r ->
+        Type.Variant (substitute_row r)
     | Type.Function (t1, t2) ->
         Type.Function (go t1, go t2)
     | Type.EVar ev ->
@@ -175,8 +178,8 @@ let substitute_evar ev ~replace_with =
   let rec go = function
     | Type.Record r ->
         Type.Record (Pair.map1 (List.map @@ Pair.map2 go) r)
-    | Type.Variant () ->
-        Type.Variant ()
+    | Type.Variant r ->
+        Type.Variant (Pair.map1 (List.map @@ Pair.map2 go) r)
     | Type.Function (t1, t2) ->
         Type.Function (go t1, go t2)
     | Type.EVar ev' ->
@@ -200,8 +203,8 @@ let substitute_evar ev ~replace_with =
   go
 
 let substitute_row_evar ev ~replace_with =
-  let rec go = function
-    | Type.Record (r, rt) ->
+  let rec go =
+    let substitute_row_evar (r,rt) =
         let rt' =
           match rt with
           | Some (Tail_evar ev') when Int.(equal ev' ev) ->
@@ -209,9 +212,12 @@ let substitute_row_evar ev ~replace_with =
           | _ ->
               None
         in
-        Type.Record ((List.map @@ Pair.map2 go) r, rt')
-    | Type.Variant () ->
-        Type.Variant ()
+        ((List.map @@ Pair.map2 go) r, rt') in
+    function
+    | Type.Record r ->
+        Type.Record (substitute_row_evar r)
+    | Type.Variant r ->
+        Type.Variant (substitute_row_evar r)
     | Type.Function (t1, t2) ->
         Type.Function (go t1, go t2)
     | Type.EVar ev' ->
@@ -345,7 +351,6 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
   (* TODO *)
   | Ast.Expr.Variant _ ->
       failwith "help"
-  (*({expr= Ast.Expr.Variant ("", []); tp= Variant ()}, ctx) *)
   | Ast.Expr.Assign (var, e1, e2) ->
       (* TODO for assignments that involve updates: check if var is in the context. if it is, check e1 against its type. otherwise, infer the type of e1 - and use that as var's assignment. *)
       let e1_inferred, new_ctx = infer ctx e1 in
@@ -585,19 +590,9 @@ and subsumes ctx tp1 tp2 =
         (Ctx.apply_ctx ctx' return_tp1)
         (Ctx.apply_ctx ctx' return_tp2)
   (* Record *)
-  | Record (r1, tail1), Record (r2, tail2) ->
-      let map1 = RowMap.of_list r1 in
-      let map2 = RowMap.of_list r2 in
-      (* Check that the matching labels' types subsume each other *)
-      let ctx' =
-        RowMap.fold
-          (fun _ (t1, t2) ctx -> subsumes ctx t1 t2)
-          (row_map_zip map1 map2) ctx
-      in
-      let missingFrom1 = RowMap.to_list @@ row_map_difference map2 map1 in
-      let missingFrom2 = RowMap.to_list @@ row_map_difference map1 map2 in
-      (* Deal with the parts that are missing *)
-      row_tail_subsumes ctx' tail1 missingFrom1 tail2 missingFrom2
+  | Record row1, Record row2 -> subsumes_row ctx row1 row2
+  (* Variant *)
+  | Variant row1, Variant row2 -> subsumes_row ctx row1 row2
   (* InstantiateL *)
   | EVar ev1, tp2 ->
       let tp2' = if occurs_check ev1 tp2 then make_recursive ev1 tp2 else tp2 in
@@ -610,6 +605,21 @@ and subsumes ctx tp1 tp2 =
       ctx
   | _ ->
       failwith "subsumes: unimplemented types"
+
+
+and subsumes_row ctx (r1, tail1) (r2, tail2) =
+    let map1 = RowMap.of_list r1 in
+    let map2 = RowMap.of_list r2 in
+    (* Check that the matching labels' types subsume each other *)
+    let ctx' =
+      RowMap.fold
+        (fun _ (t1, t2) ctx -> subsumes ctx t1 t2)
+        (row_map_zip map1 map2) ctx
+    in
+    let missingFrom1 = RowMap.to_list @@ row_map_difference map2 map1 in
+    let missingFrom2 = RowMap.to_list @@ row_map_difference map1 map2 in
+    (* Deal with the parts that are missing *)
+    row_tail_subsumes ctx' tail1 missingFrom1 tail2 missingFrom2
 
 and instantiateL ctx ev tp =
   (* print_string @@ "instantiateL: " ^ Int.to_string ev ^ "\n";
@@ -644,8 +654,8 @@ and instantiateL ctx ev tp =
   (* InstMuR *)
   | Mu mu ->
       instantiate_mu ctx instantiateL ev mu
-  | Variant () ->
-      failwith "instantiateL: variant unimplemented"
+  | Variant row ->
+      instantiate_row ctx instantiateL (fun tp -> Type.Variant tp) ev row
 
 and instantiateR ctx tp ev =
   (* print_string @@ "instantiateR: " ^ Int.to_string ev ^ "\n";
@@ -691,8 +701,11 @@ and instantiateR ctx tp ev =
   (* InstMuL *)
   | Mu mu ->
       instantiate_mu ctx (fun ctx ev tp -> instantiateR ctx tp ev) ev mu
-  | Variant () ->
-      failwith "instantiateR: variant unimplemented"
+  | Variant row ->
+      instantiate_row ctx
+        (fun ctx ev tp -> instantiateR ctx tp ev)
+        (fun tp -> Type.Variant tp)
+        ev row
 
 and instantiate_fn ctx argInstFn retInstFn ev (arg_tp, ret_tp) =
   let arg_ev_tp, arg_ev_ce, arg_ev, ctx' = Ctx.fresh_evar ctx in
