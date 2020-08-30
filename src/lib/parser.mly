@@ -47,7 +47,7 @@ function_type:
 expr:
   | v = LOWER_IDENT; WALRUS; e = expr; SEMICOLON; b = expr { Expr.make_assign v e b }
   | f = function_expr { f }
-  | CASE; e = expr_body; l = rev_case_entries { Expr.make_case e l }
+  | CASE; e = expr_body; l = rev_case_entries { Expr.make_case e (List.rev) }
   | e = expr_body { e }
 
 expr_body:
