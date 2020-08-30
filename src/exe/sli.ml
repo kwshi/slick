@@ -29,7 +29,7 @@ let splash_phrases =
 let pp_logo =
   let open Fmt in
   vbox (styled `Bold @@ styled (`Fg (`Hi `Blue)) @@ pp_logo_lines)
-  ++ (sp ++ styled `Faint (const string @@ Random.run (Random.pick_array splash_phrases)))
+  ++ hbox (sp ++ styled `Faint (const string @@ Random.run (Random.pick_array splash_phrases)))
   ++ Format.pp_force_newline ++ Format.pp_print_newline
 
 let pp =
