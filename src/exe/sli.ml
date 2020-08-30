@@ -23,7 +23,7 @@ let pp_logo =
 
 let pp =
   let open Fmt in
-  hvbox
+  hbox
     (pair
        ~sep:(sp ++ styled `Faint (hbox (any ":@ ")))
        (styled (`Fg (`Hi `Cyan)) Slick.Value.pp)
