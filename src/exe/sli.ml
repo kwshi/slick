@@ -32,7 +32,8 @@ let pp_logo =
   ++ hbox
        ( sp
        ++ styled `Faint
-            (const string @@ Random.run (Random.pick_array splash_phrases)) )
+         (styled `Italic @@
+            const string @@ Random.run (Random.pick_array splash_phrases)) )
   ++ Format.pp_force_newline ++ Format.pp_print_newline
 
 let pp =
