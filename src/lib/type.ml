@@ -25,6 +25,9 @@ type t =
 
 and row = (label * t) list * tail option
 
+let unit = Record ([], None)
+let bool = Variant (["True", unit; "False", unit], None)
+
 let pp_tail ppf tl =
   let open Fmt in
   ( match tl with
