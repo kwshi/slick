@@ -21,10 +21,22 @@ let iter_row f = fst %> List.iter (snd %> f)
 
 (* Debug functions *)
 
-let print_ctx ctx =
-  List.to_string Ctx.show_element ctx.Ctx.context |> print_endline
+let debug = true
 
-let print_tp tp = Type.pp Format.stdout tp ; Format.print_newline ()
+let print_debug str =
+  if debug
+  then print_endline str
+  else ()
+
+let print_ctx ctx =
+  if debug
+  then List.to_string Ctx.show_element ctx.Ctx.context |> print_endline
+  else ()
+
+let print_tp tp =
+  if debug
+  then (Type.pp Format.stdout tp ; Format.print_newline ())
+  else ()
 
 (* Smart constructors for making fresh evars. Returns a tuple consisting of
   ( var as a type
@@ -145,8 +157,8 @@ let substitute_row tv ~replace_with =
             match rt with
             | Some (Type.Tail_tvar tv') when String.(equal tv' tv) ->
                 Some replace_with
-            | _ ->
-                None
+            | rt ->
+                rt
           in
           ((List.map @@ Pair.map2 go) r, rt') in
     function
@@ -210,7 +222,7 @@ let substitute_row_evar ev ~replace_with =
           | Some (Type.Tail_evar ev') when Int.(equal ev' ev) ->
               Some replace_with
           | rt -> rt
-        in
+ in
         ((List.map @@ Pair.map2 go) r, rt') in
     function
     | Type.Record r ->
@@ -289,15 +301,15 @@ let over_forall_row_evar ctx (fn : Ctx.t -> Type.t -> 'a) (tv, forall_inner) =
 
 let rec infer_top ctx annotated =
   let inferred, new_ctx = infer ctx annotated in
-  print_tp inferred.tp;
-  print_ctx new_ctx;
+  (* print_tp inferred.tp;
+   * print_ctx new_ctx; *)
   let resolved = Ctx.apply_ctx_expr new_ctx inferred in
-  print_tp resolved.tp;
+  (* print_tp resolved.tp; *)
   ({resolved with tp= quantify (Ctx.free_evars new_ctx) resolved.tp}, new_ctx)
 
 and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
-  print_string "infer:\n";
-  print_ctx ctx;
+  (* print_string "infer:\n";
+   * print_ctx ctx; *)
   match annotated.Ast.Expr.expr with
   (* Var  *)
   | Ast.Expr.Var v ->
@@ -334,9 +346,9 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
           { Ast.Expr.expr= Ast.Expr.Function (var, e_checked)
           ; Ast.Expr.tp= Type.Function (arg_ev_tp, ret_ev_tp) }
       in
-      print_string "infer function: ";
-      print_tp fun_expr.tp;
-      print_ctx new_ctx;
+      (* print_string "infer function: ";
+       * print_tp fun_expr.tp;
+       * print_ctx new_ctx; *)
       let quantified_fun_expr =
         { fun_expr with
           tp=
@@ -431,16 +443,16 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
         cs
       in
       let case_expr = Ctx.apply_ctx_expr ctx7 {expr = Ast.Expr.Case (e_inferred', cs_inferred); tp= ret_ev_tp} in
-      print_string "Case:\n";
-      print_tp case_expr.tp;
-      print_ctx ctx7;
+      (* print_string "Case:\n";
+       * print_tp case_expr.tp;
+       * print_ctx ctx7; *)
       (case_expr, ctx7)
     | _ -> failwith "infer: case, got an input that wasn't a variant (this should've failed earlier)."
 
 and check ctx annotated tp =
-  print_string "check:\n";
-  print_tp tp;
-  print_ctx ctx;
+  (* print_string "check:\n";
+   * print_tp tp;
+   * print_ctx ctx; *)
   let open Ast in
   match (annotated.expr, tp) with
   (* forall I *)
@@ -592,10 +604,10 @@ and infer_ext ctx rcd_head tp =
       failwith "infer_ext: Got unexpected type."
 
 and subsumes ctx tp1 tp2 =
-  print_string "susubmes:\n";
-  print_tp tp1;
-  print_tp tp2;
-  print_ctx ctx;
+  (* print_string "susubmes:\n";
+   * print_tp tp1;
+   * print_tp tp2;
+   * print_ctx ctx; *)
   match (tp1, tp2) with
   (* EVar *)
   | EVar ev1, EVar ev2 when Int.(ev1 = ev2) ->
@@ -858,19 +870,19 @@ and row_tail_subsumes ctx tail1 missingFrom1 tail2 missingFrom2 =
     when String.(equal tv1 tv2) ->
       ctx
   | Some (Tail_evar ev1), _, Some (Tail_evar ev2), _ ->
-      print_string @@ "row tail subsumes: ev" ^ Int.to_string ev1 ^ " and ev" ^ Int.to_string ev2;
-      print_newline ();
-      print_ctx ctx;
+      (* print_string @@ "row tail subsumes: ev" ^ Int.to_string ev1 ^ " and ev" ^ Int.to_string ev2;
+       * print_newline ();
+       * print_ctx ctx; *)
       row_tail_subsumes_ev ctx ev1 missingFrom1 ev2 missingFrom2
   (* The second tail must not be an evar otherwise the reach case would match, thus it must have no missing elements to add to it.  *)
   | Some (Tail_evar ev1), _, _, [] ->
-      print_string @@ "row tail subsumes: " ^ Int.to_string ev1 ^ " on a non-evar.";
-      print_newline ();
+      (* print_string @@ "row tail subsumes: " ^ Int.to_string ev1 ^ " on a non-evar.";
+       * print_newline (); *)
       solve_row_evar ev1 (missingFrom1, tail2) ctx
   (* The first tail must not be an evar otherwise the reach case would match, thus it must have no missing elements to add to it. *)
   | _, [], Some (Tail_evar ev2), _ ->
-      print_string @@ "row tail subsumes: " ^ Int.to_string ev2 ^ " on a non-evar.";
-      print_newline ();
+      (* print_string @@ "row tail subsumes: " ^ Int.to_string ev2 ^ " on a non-evar.";
+       * print_newline (); *)
       solve_row_evar ev2 (missingFrom2, tail1) ctx
   | None, [], None, [] ->
       ctx
