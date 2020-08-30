@@ -50,7 +50,14 @@ expr:
   | a = function_app { a }
   | s = UPPER_IDENT; e = atomic_expr { Expr.make_variant s e }
   | e = atomic_expr { e }
+  | CASE; e = expr; l = rev_case_entries { Expr.make_case e l }
 
+rev_case_entries:
+  | e = case_entry { [e] }
+  | l = rev_case_entries; e = case_entry { e :: l }
+
+case_entry:
+  | PIPE; v = UPPER_IDENT; p = LOWER_IDENT; ARROW; e = expr { (v, p, e) }
 
 atomic_expr:
   | LPAREN; e = expr; RPAREN { e }

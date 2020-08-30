@@ -35,6 +35,7 @@ module Expr = struct
     | Variant of (string * 't)
     | Var of var_name
     | Literal of literal
+    | Case of 't * (string * string * 't) list
 
   and 'annotated_expr record = (label * 'annotated_expr) list
 
@@ -66,5 +67,7 @@ module Expr = struct
     let make_assign v e b = make @@ Assign (v, e, b)
 
     let make_literal l = make @@ Literal l
+
+    let make_case e cs = make @@ Case (e, cs)
   end
 end
