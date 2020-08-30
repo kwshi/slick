@@ -127,8 +127,8 @@ let apply_ctx ctx =
         Type.Primitive p
     | Type.TVar tv ->
         Type.TVar tv
-    | Type.Variant () ->
-        Type.Variant ()
+    | Type.Variant _ ->
+      failwith "aaa"
   and row (l, t) =
     let l' = List.map (Pair.map2 go) l in
     match t with

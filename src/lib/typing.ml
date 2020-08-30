@@ -207,7 +207,7 @@ let substitute_row_evar ev ~replace_with =
     let substitute_row_evar (r,rt) =
         let rt' =
           match rt with
-          | Some (Tail_evar ev') when Int.(equal ev' ev) ->
+          | Some (Type.Tail_evar ev') when Int.(equal ev' ev) ->
               Some replace_with
           | _ ->
               None

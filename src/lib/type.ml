@@ -38,9 +38,11 @@ let rec pp ppf t =
   let open Fmt in
   ( match t with
   | Record r ->
-      const (pp_row "{" "}") r
+    const pp_row r
+    |> Format.within "{" "}"
   | Variant r ->
-      const (pp_row "[|" "|]") r
+    const pp_row r
+    |> Format.within "{" "}"
   | Function (a, b) ->
       any "(" ++ const pp a ++ any "@ ->@ " ++ const pp b ++ any ")"
   | EVar ev ->
@@ -57,10 +59,9 @@ let rec pp ppf t =
     match p with Int -> any "Int" ) )
     ppf ()
 
-and pp_row start stop ppf (es, tl) =
+and pp_row ppf (es, tl) =
   let open Fmt in
-  ( const string start
-  ++ const (option ~none:nop (pp_tail ++ any "@ |@ ")) tl
+  ( const (option ~none:nop (pp_tail ++ any "@ |@ ")) tl
   ++ const (list ~sep:comma (pair ~sep:(any "@ :@ ") string pp)) es
-  ++ const string stop )
+)
     ppf ()
