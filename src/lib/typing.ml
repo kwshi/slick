@@ -149,8 +149,8 @@ let substitute tv ~replace_with =
         else Type.ForallRow (tv', go tp)
     | Type.Mu (tv', tp) ->
         if String.(equal tv tv')
-        then Type.ForallRow (tv', tp)
-        else Type.ForallRow (tv', go tp)
+        then Type.Mu (tv', tp)
+        else Type.Mu (tv', go tp)
     | Type.Primitive p ->
         Type.Primitive p
   in
@@ -307,6 +307,8 @@ let rec infer_top ctx annotated =
 
 
 and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
+  (* print_string "infer:\n";
+   * print_ctx ctx; *)
   match annotated.Ast.Expr.expr with
   (* Var  *)
   | Ast.Expr.Var v ->
@@ -403,6 +405,9 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
 
 
 and check ctx annotated tp =
+  (* print_string "check:\n";
+   * print_tp tp;
+   * print_ctx ctx; *)
   let open Ast in
   match (annotated.expr, tp) with
   (* forall I *)
@@ -436,6 +441,9 @@ and check ctx annotated tp =
 
 
 and infer_app ctx tp e1 =
+  (* print_string "infer_app:\n";
+   * print_tp tp;
+   * print_ctx ctx; *)
   match tp with
   (* Forall App *)
   | Forall (tv, forall_inner) ->
@@ -568,6 +576,10 @@ and infer_ext ctx rcd_head tp =
 
 
 and subsumes ctx tp1 tp2 =
+  (* print_string "susubmes:\n";
+   * print_tp tp1;
+   * print_tp tp2;
+   * print_ctx ctx; *)
   match (tp1, tp2) with
   (* EVar *)
   | EVar ev1, EVar ev2 when Int.(ev1 = ev2) ->
@@ -649,6 +661,9 @@ and subsumes ctx tp1 tp2 =
 
 
 and instantiateL ctx ev tp =
+  (* print_string @@ "instantiateL: " ^ Int.to_string ev ^ "\n";
+   * print_tp tp;
+   * print_ctx ctx; *)
   match tp with
   (* InstLArr *)
   | Function (arg_tp, ret_tp) ->
@@ -729,6 +744,9 @@ and instantiateL ctx ev tp =
 
 
 and instantiateR ctx tp ev =
+  (* print_string @@ "instantiateR: " ^ Int.to_string ev ^ "\n";
+   * print_tp tp;
+   * print_ctx ctx; *)
   match tp with
   (* InstRArr *)
   | Function (arg_tp, ret_tp) ->
