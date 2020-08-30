@@ -26,8 +26,8 @@ let rec evaluate (sc : Val.t Scope.t) expr =
         Record ((lbl, evaluate sc e) :: r')
     | _ ->
         assert false )
-  | Variant (v, r) ->
-      Variant (v, r |> List.map @@ Pair.map2 @@ evaluate sc)
+  | Variant (v, e) ->
+      Variant (v, evaluate sc e)
   | Var v ->
       Scope.find v sc
   | Literal l ->

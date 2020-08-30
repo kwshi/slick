@@ -158,8 +158,8 @@ let apply_ctx_expr ctx =
           Expr.Function (v, go e)
       | Expr.Record r ->
           Expr.Record (List.map (Pair.map2 go) r)
-      | Expr.Variant (v, r) ->
-          Expr.Variant (v, List.map (Pair.map2 go) r)
+      | Expr.Variant (v, e) ->
+          Expr.Variant (v, go e)
       | Expr.Var v ->
           Expr.Var v
       | Expr.Assign (v, e1, e2) ->

@@ -11,6 +11,7 @@ module Slick = struct end
 %token <string> UPPER_IDENT
 %token <Z.t> INT
 %token BACKSLASH
+%token CASE
 %token HYPHEN
 %token LPAREN
 %token RPAREN
@@ -47,15 +48,16 @@ expr:
   | v = LOWER_IDENT; WALRUS; e = expr; SEMICOLON; b = expr { Expr.make_assign v e b }
   | f = function_expr { f }
   | a = function_app { a }
-  | s = UPPER_IDENT; r = record_expr { Expr.make_variant s r }
+  | s = UPPER_IDENT; e = atomic_expr { Expr.make_variant s e }
   | e = atomic_expr { e }
-  | n = INT { Expr.(make_literal (Int n)) }
+
 
 atomic_expr:
   | LPAREN; e = expr; RPAREN { e }
   | r = record_expr { Expr.make_record r }
   | v = LOWER_IDENT { Expr.make_var v }
   | r = atomic_expr; DOT; l = LOWER_IDENT { Expr.make_projection r l }
+  | n = INT { Expr.(make_literal (Int n)) }
   | LBRACE; e = expr; PIPE; l = comma_sequence(record_expr_entry) RBRACE { Expr.make_extensions e l }
 
 rev_comma_sequence(item):

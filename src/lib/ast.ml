@@ -32,7 +32,7 @@ module Expr = struct
     | Record of 't record
     | Projection of ('t * label)
     | Extension of (label * 't * 't)
-    | Variant of (string * 't record)
+    | Variant of (string * 't)
     | Var of var_name
     | Literal of literal
 

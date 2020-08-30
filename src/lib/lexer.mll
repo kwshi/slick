@@ -25,6 +25,7 @@ rule read =
   parse
   | white { read lexbuf }
   | newline { next_line lexbuf; read lexbuf }
+  | "case" { CASE }
   | "\\" { BACKSLASH }
   | "->" { ARROW }
   | "(" { LPAREN }

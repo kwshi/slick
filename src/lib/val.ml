@@ -28,7 +28,7 @@ end
 type t =
   | Record of t Record.t
   | Function of (t -> t)
-  | Variant of string * (string * t) list
+  | Variant of string * t
   | Primitive of Primitive.t
 
 let rec pp ppf value =
@@ -38,8 +38,8 @@ let rec pp ppf value =
       const pp_record r
   | Function _ ->
       any "<function>"
-  | Variant (v, r) ->
-      const string v ++ const pp_record r
+  | Variant (v, e) ->
+      const string v ++ const pp e
   | Primitive p ->
       const Primitive.pp p )
     ppf ()

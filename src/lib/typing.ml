@@ -332,7 +332,8 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
       ({expr= Application (e1_inferred', e2_inferred); tp= output_tp}, new_ctx')
   (* TODO *)
   | Ast.Expr.Variant _ ->
-      ({expr= Ast.Expr.Variant ("", []); tp= Variant ()}, ctx)
+    failwith "help"
+  (*({expr= Ast.Expr.Variant ("", []); tp= Variant ()}, ctx) *)
   | Ast.Expr.Assign (var, e1, e2) ->
       (* TODO for assignments that involve updates: check if var is in the context. if it is, check e1 against its type. otherwise, infer the type of e1 - and use that as var's assignment. *)
       let e1_inferred, new_ctx = infer ctx e1 in
