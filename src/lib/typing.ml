@@ -380,6 +380,9 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
       ( { expr= Ast.Expr.Literal l
         ; tp= Primitive (match l with Ast.Expr.Int _ -> Int) }
       , ctx )
+  | Ast.Expr.Case (e, _cs) ->
+    let _e', _ctx' = infer ctx e in
+    failwith "helpme pls"
 
 and check ctx annotated tp =
   (* print_string "check:\n";

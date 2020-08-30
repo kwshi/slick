@@ -167,6 +167,8 @@ let apply_ctx_expr ctx =
           Expr.Projection (go r, lbl)
       | Expr.Extension (lbl, e, r) ->
           Expr.Extension (lbl, go e, go r)
+      | Expr.Case (e, cs) ->
+        Expr.Case (go e, List.map (fun (v, p, e) -> (v, p, go e)) cs)
       | Expr.Literal l ->
           Expr.Literal l
     in

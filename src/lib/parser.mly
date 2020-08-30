@@ -47,25 +47,28 @@ function_type:
 expr:
   | v = LOWER_IDENT; WALRUS; e = expr; SEMICOLON; b = expr { Expr.make_assign v e b }
   | f = function_expr { f }
+  | CASE; e = expr_body; l = rev_case_entries { Expr.make_case e l }
+  | e = expr_body { e }
+
+expr_body:
+  | e = expr_atom { e }
   | a = function_app { a }
-  | s = UPPER_IDENT; e = atomic_expr { Expr.make_variant s e }
-  | e = atomic_expr { e }
-  | CASE; e = expr; l = rev_case_entries { Expr.make_case e l }
+  | s = UPPER_IDENT; e = expr_atom { Expr.make_variant s e }
+
+expr_atom:
+  | LPAREN; e = expr; RPAREN { e }
+  | r = record_expr { Expr.make_record r }
+  | v = LOWER_IDENT { Expr.make_var v }
+  | r = expr_atom; DOT; l = LOWER_IDENT { Expr.make_projection r l }
+  | n = INT { Expr.(make_literal (Int n)) }
+  | LBRACE; e = expr_body; PIPE; l = comma_sequence(record_expr_entry) RBRACE { Expr.make_extensions e l }
 
 rev_case_entries:
   | e = case_entry { [e] }
   | l = rev_case_entries; e = case_entry { e :: l }
 
 case_entry:
-  | PIPE; v = UPPER_IDENT; p = LOWER_IDENT; ARROW; e = expr { (v, p, e) }
-
-atomic_expr:
-  | LPAREN; e = expr; RPAREN { e }
-  | r = record_expr { Expr.make_record r }
-  | v = LOWER_IDENT { Expr.make_var v }
-  | r = atomic_expr; DOT; l = LOWER_IDENT { Expr.make_projection r l }
-  | n = INT { Expr.(make_literal (Int n)) }
-  | LBRACE; e = expr; PIPE; l = comma_sequence(record_expr_entry) RBRACE { Expr.make_extensions e l }
+  | PIPE; v = UPPER_IDENT; p = LOWER_IDENT; ARROW; e = expr_body { (v, p, e) }
 
 rev_comma_sequence(item):
   | { [] }
@@ -97,5 +100,5 @@ function_expr:
   | BACKSLASH; v = LOWER_IDENT; ARROW; e = expr { Expr.make_function v e }
 
 function_app:
-  | f = atomic_expr; e = atomic_expr { Expr.make_application f e }
+  | f = expr_atom; e = expr_atom { Expr.make_application f e }
 
