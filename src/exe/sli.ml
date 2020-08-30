@@ -10,20 +10,16 @@ let pp_logo_lines ppf () =
   ; sp ++ a "___" ++ h "\\ \\" ++ a "__  __\\ \\  __"
   ; a "/ ___" ++ h "\\ \\" ++ a " \\/ __\\ \\/ /"
   ; a "\\____ " ++ h "\\ \\" ++ a " \\ \\__\\   \\_"
-  ; a "____" ++ h' "/" ++ h "_/\\_\\" ++ a "_\\___/\\_\\___"
-  ]
+  ; a "____" ++ h' "/" ++ h "_/\\_\\" ++ a "_\\___/\\_\\___" ]
   |> List.map (hbox % ( ++ ) (sps 2))
   |> List.intersperse cut
   |> List.iter (fun pp -> pp ppf ())
-
 
 let pp_logo =
   let open Fmt in
   vbox (styled `Bold @@ styled (`Fg (`Hi `Blue)) @@ pp_logo_lines)
   ++ hbox (sp ++ styled `Faint (any "insert catchphrase here"))
-  ++ Format.pp_force_newline
-  ++ Format.pp_print_newline
-
+  ++ Format.pp_force_newline ++ Format.pp_print_newline
 
 let pp =
   let open Fmt in
@@ -33,7 +29,6 @@ let pp =
        (styled (`Fg (`Hi `Cyan)) Slick.Value.pp)
        (styled `Faint Slick.Type.pp))
   ++ const Format.pp_print_newline ()
-
 
 let () =
   Fmt.(set_style_renderer stdout `Ansi_tty) ;
@@ -50,10 +45,9 @@ let () =
         let open Fmt in
         ( styled (`Fg (`Hi `Magenta)) (any "[interrupted]")
         ++ Format.pp_print_newline )
-          stderr
-          ()
-    | Some s ->
-      ( match String.trim s with
+          stderr ()
+    | Some s -> (
+      match String.trim s with
       | "" ->
           ()
       | input ->
@@ -63,8 +57,7 @@ let () =
             |> Slick.Parser.prog Slick.Lexer.read
             |> Slick.Typing.infer_top Slick.Builtin.ctx
           in
-          pp
-            Fmt.stdout
+          pp Fmt.stdout
             ( Slick.Eval.evaluate Slick.Builtin.scope expr
             , expr.Slick.Ast.Expr.tp ) )
   done

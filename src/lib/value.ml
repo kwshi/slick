@@ -15,11 +15,9 @@ let rec pp ppf value =
       any "<function>"
   | Variant (v, r) ->
       const string v ++ const pp_record r
-  | Primitive p ->
-    (match p with Int n -> const Z.pp_print n) )
-    ppf
-    ()
-
+  | Primitive p -> (
+    match p with Int n -> const Z.pp_print n ) )
+    ppf ()
 
 and pp_record ppf =
   let open Fmt in

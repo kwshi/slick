@@ -38,17 +38,14 @@ module Expr = struct
 
   and 'annotated_expr record = (label * 'annotated_expr) list
 
-  and 'tp t =
-    { tp : 'tp
-    ; expr : 'tp t raw_expr
-    }
+  and 'tp t = {tp: 'tp; expr: 'tp t raw_expr}
 
   module Untyped = struct
     type 'a expr = 'a t
 
     type t = unit expr
 
-    let make expr = { tp = (); expr }
+    let make expr = {tp= (); expr}
 
     let make_function v e = make @@ Function (v, e)
 

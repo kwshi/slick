@@ -10,9 +10,7 @@ let pp_label = Format.string
 
 type primitive = Int
 
-type tail =
-  | Tail_evar of int
-  | Tail_tvar of var_name
+type tail = Tail_evar of int | Tail_tvar of var_name
 
 type t =
   | Record of row
@@ -34,9 +32,7 @@ let pp_tail ppf tl =
       any "e" ++ const int ev
   | Tail_tvar tv ->
       const string tv )
-    ppf
-    ()
-
+    ppf ()
 
 let rec pp ppf t =
   let open Fmt in
@@ -57,11 +53,9 @@ let rec pp ppf t =
       any "forall_row@ " ++ const string a ++ any ".@ " ++ const pp e
   | Mu (v, e) ->
       any "µ@ " ++ const string v ++ any ".@ " ++ const pp e
-  | Primitive p ->
-    (match p with Int -> any "Int") )
-    ppf
-    ()
-
+  | Primitive p -> (
+    match p with Int -> any "Int" ) )
+    ppf ()
 
 and pp_row ppf (es, tl) =
   let open Fmt in
@@ -69,5 +63,4 @@ and pp_row ppf (es, tl) =
   ++ const (option ~none:nop (pp_tail ++ any "@ |@ ")) tl
   ++ const (list ~sep:comma (pair ~sep:(any "@ :@ ") string pp)) es
   ++ any "}" )
-    ppf
-    ()
+    ppf ()

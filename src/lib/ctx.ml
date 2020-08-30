@@ -12,33 +12,29 @@ type element =
 [@@deriving show]
 
 type t =
-  { next_var : int
+  { next_var: int
         (* this is for both evars and tvars - we could separate it though *)
-  ; context : element list
-  }
+  ; context: element list }
 
-let empty = { next_var = 0; context = [] }
+let empty = {next_var= 0; context= []}
 
-let of_list context = { next_var = List.length context; context }
+let of_list context = {next_var= List.length context; context}
 
 let fresh_evar ctx =
   ( Type.EVar ctx.next_var
   , Evar ctx.next_var
   , ctx.next_var
-  , { ctx with next_var = ctx.next_var + 1 } )
-
+  , {ctx with next_var= ctx.next_var + 1} )
 
 let fresh_row_evar ctx =
   ( Type.Tail_evar ctx.next_var
   , Row_evar ctx.next_var
   , ctx.next_var
-  , { ctx with next_var = ctx.next_var + 1 } )
-
+  , {ctx with next_var= ctx.next_var + 1} )
 
 let over_context f ctx =
   (* print_string (List.to_string show_context_element @@ ctx.context); print_newline (); *)
-  { ctx with context = f ctx.context }
-
+  {ctx with context= f ctx.context}
 
 let lookup_var v ctx =
   List.find_map
@@ -47,18 +43,13 @@ let lookup_var v ctx =
   |> Option.get_lazy (fun () ->
          failwith @@ "lookup_var unbound var: " ^ v ^ ".")
 
-
 let free_evars ctx =
   let match_evar = function Evar ev -> Some ev | _ -> None in
   List.filter_map match_evar ctx.context
 
-
 let free_row_evars ctx =
   let match_evar = function Row_evar ev -> Some ev | _ -> None in
   List.filter_map match_evar ctx.context
-
-
-
 
 (* drop_ctx_from:
    takes in a context_element ce and a context.
@@ -83,11 +74,9 @@ let drop_ctx_from ce =
             (true, None)
         | false, false ->
             (false, Some ce'))
-      false
-      ctx
+      false ctx
   in
   if found then ctx' else failwith "drop_ctx_from not found"
-
 
 (* Parallel to drop_ctx_from. Still removes the element queried. *)
 let get_ctx_after ce =
@@ -100,7 +89,6 @@ let get_ctx_after ce =
         []
   in
   over_context go
-
 
 (* apply_ctx:
    takes in a context ctx and a type tp.
@@ -124,10 +112,10 @@ let apply_ctx ctx =
     | Type.EVar ev ->
         ctx.context
         |> List.find_map (function
-               | Evar_assignment (ev', t) when Int.(ev = ev') ->
-                   Some (go t)
-               | _ ->
-                   None)
+             | Evar_assignment (ev', t) when Int.(ev = ev') ->
+                 Some (go t)
+             | _ ->
+                 None)
         |> Option.get_or ~default:(Type.EVar ev)
     | Type.Forall (tv, tp) ->
         Type.Forall (tv, go tp)
@@ -147,17 +135,16 @@ let apply_ctx ctx =
     | Some (Tail_evar ev) ->
         ctx.context
         |> List.find_map (function
-               | Row_evar_assignment (ev', r) when Int.(ev = ev') ->
-                   (* TODO recursively apply context to the row here *)
-                   Some r
-               | _ ->
-                   None)
+             | Row_evar_assignment (ev', r) when Int.(ev = ev') ->
+                 (* TODO recursively apply context to the row here *)
+                 Some r
+             | _ ->
+                 None)
         |> Option.map_or ~default:(l', t) (fun (l'', t') -> (l' @ l'', t'))
     | _ ->
         (l', t)
   in
   go
-
 
 let apply_ctx_expr ctx =
   let open Ast in
@@ -184,10 +171,9 @@ let apply_ctx_expr ctx =
       | Expr.Literal l ->
           Expr.Literal l
     in
-    { expr; tp }
+    {expr; tp}
   in
   go
-
 
 (* insert_before_in_ctx
    takes in a context element ce, a list of context elements ces, and a context ctx.
@@ -203,12 +189,10 @@ let insert_before_in_ctx ce ces =
   @@ fun l ->
   List.fold_right
     (fun ce' acc ->
-      ( if Stdlib.(ce' = ce) (* TODO get rid of polymorphic comparison *)
-      then ces
+      ( if Stdlib.(ce' = ce) (* TODO get rid of polymorphic comparison *) then
+        ces
       else [] )
       @ (ce' :: acc))
-    l
-    []
-
+    l []
 
 let append_ctx ces = over_context @@ fun context -> List.append context ces
