@@ -136,8 +136,7 @@ let apply_ctx ctx =
         ctx.context
         |> List.find_map (function
              | Row_evar_assignment (ev', r) when Int.(ev = ev') ->
-                 (* TODO recursively apply context to the row here *)
-                 Some r
+                 Some (row r)
              | _ ->
                  None)
         |> Option.map_or ~default:(l', t) (fun (l'', t') -> (l' @ l'', t'))
