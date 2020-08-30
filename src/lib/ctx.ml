@@ -47,6 +47,7 @@ let lookup_var v ctx =
   |> Option.get_lazy (fun () ->
          failwith @@ "lookup_var unbound var: " ^ v ^ ".")
 
+(* TODO change to free_evars or row_evars over a type *)
 let free_evars ctx =
   let match_evar = function Evar ev -> Some ev | _ -> None in
   List.filter_map match_evar ctx.context
