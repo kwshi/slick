@@ -15,10 +15,21 @@ let pp_logo_lines ppf () =
   |> List.intersperse cut
   |> List.iter (fun pp -> pp ppf ())
 
+let splash_phrases =
+  [| "insert catchphrase here"
+  ; "yum yum"
+  ; "slick (noun). A neat programming language"
+  ; "Slick Lang Is Cool, K?"
+  ; "slick ties your shoes for you"
+  ; "hi"
+  ; "if slick were a color, it would be slate"
+  ; "the slicki-wicki-wickest there is"
+  ; "powered by types"|]
+
 let pp_logo =
   let open Fmt in
   vbox (styled `Bold @@ styled (`Fg (`Hi `Blue)) @@ pp_logo_lines)
-  ++ hbox (sp ++ styled `Faint (any "insert catchphrase here"))
+  ++ (sp ++ styled `Faint (const string @@ Random.run (Random.pick_array splash_phrases)))
   ++ Format.pp_force_newline ++ Format.pp_print_newline
 
 let pp =
