@@ -21,10 +21,11 @@ let splash_phrases =
    ; "slick (noun). A neat programming language"
    ; "Slick Lang Is Cool, K?"
    ; "slick ties your shoes for you"
-   ; "hi"
+   ; "hi."
+   ; "Langy McLangface"
    ; "if slick were a color, it would be slate"
    ; "the slicki-wicki-wickest there is"
-   ; "powered by types" |]
+   ; "powered by types (TM)" |]
 
 let pp_logo =
   let open Fmt in
