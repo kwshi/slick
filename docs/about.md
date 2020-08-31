@@ -1,8 +1,12 @@
 # About Slick
 
-Slick is a statically-typed, interpreted programming language. It is designed to be
-simple, concise, and safe. Below are some features that demonstrate these
-values.
+Slick is a statically-typed, interpreted programming language.
+
+It melds the type safety of languages like Haskell, OCaml, and Rust with the
+versatility of languages like Python and Swift.
+
+Slick is designed to be simple, concise, and safe. Below are some features that
+demonstrate these values.
 
 ## First class functions
 

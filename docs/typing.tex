@@ -10,6 +10,8 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{amsthm}
+\usepackage{stmaryrd}
+\usepackage{graphicx}
 % nice looking greek symbols
 \usepackage{upgreek}
 % \RHD
@@ -25,7 +27,17 @@
 
 \newcommand{\arrow}{\to}
 \newcommand{\rcd}[1]{\{#1\}}
+\newcommand{\vnt}[1]{\llbracket #1 \rrbracket}
+\newcommand{\recursive}[2]{\upmu {#1}. {#2}}
+\newcommand{\fa}[2]{\forall {#1}. {#2}}
+\newcommand{\rowall}{\rotatebox[origin=c]{180}{\(\mathsf{R}\)}}
+\newcommand{\far}[2]{\rowall {#1}. {#2}}
+\newcommand{\rowtpvar}{\uprho}
+\newcommand{\tpvar}{\upalpha}
+\newcommand{\tpvaralt}{\upbeta}
 \newcommand{\emptyrow}{\cdot}
+\newcommand{\pat}{p}
+\newcommand{\case}[2]{\texttt{case} \ {#1}: {#2}}
 
 \newcommand{\spc}{\qquad}
 \newcommand{\ctx}{\Upgamma}
@@ -61,7 +73,6 @@
 \newcommand{\B}{\mathcal{B}}
 \newcommand{\C}{\mathcal{C}}
 \newcommand{\D}{\mathcal{D}}
-\newcommand{\rowall}{\rotatebox[origin=c]{180}{\(\mathsf{R}\)}}
 \newcommand{\rowvar}{\alpha_\rho}
 \newcommand{\bottom}{\perp}
 \newcommand{\prjSymbol}{.}
@@ -102,27 +113,16 @@
 
 \maketitle
 
-% \section{Grammar}
-% 
-% \subsection{Expressions}
-% 
-% Note that the empty record \(\{\}\) is used in place of unit.
-% 
-% \[
-% \begin{array}{lllrl}
-%   \bnfvar {expr} & \define & \bnfvar {record-expr} & \\
-%   & | & \bnfvar {function} & \\
-%   & | & \bnfvar {function-app} & \\
-%   & | & ( \bnfvar {expr} ) & \\
-%   \bnfvar {record-expr} & \define & \{ \bnfvar {record-expr-values} \} & \\
-%   \bnfvar {record-expr-values} & \define & \upepsilon & \text{empty} \\
-%   & | & \bnfvar {record-expr-value} & \text{singleton} \\
-%   & | & \bnfvar {record-expr-value} , \bnfvar {record-expr-values} & \\
-%   \bnfvar {record-expr-value} & \define & identifier = \bnfvar {expr} & \\
-%   \bnfvar {function} & \define & \bnfvar {record} \arrow \bnfvar {expr} & \\
-%   \bnfvar {function-app} & \define & \bnfvar {expr} \bnfvar {expr} & 
-% \end{array}
-% \]
+\section{Acknowledgements}
+
+This type system is heavily adapted from the one presented in \textit{Complete
+and Easy Bidirectional Typing for Higher-Rank Polymorphism} by Dunfield and
+Krishnaswami.
+
+Other references include \textit{Types and Programming Langauges} by Benjamin
+Pierce and Chapter 10 of \textit{Advanced Types and Programming Languages},
+``The Essence of ML Type Inference,'' by Fran\c{c}ois Pottier and Didier
+R\'{e}my.
 
 \section{Declarative Typing}
 
@@ -130,16 +130,21 @@
 
 \[
   \begin{array}{llll}
-    \text{labels} & \lbl & & \\
+    \text{labels (includes capital labels)} & \lbl & & \\
+    \text{capital labels} & L & & \\
+    \text{patterns} & \pat & & \\
     \text{variables} & \var & & \\
     \text{expressions} & \expr & \define & \\
-    & \text{records} & | & \rcd{\lbl_1=\expr_1, \lbl_2=\expr_2,\dots} \\
     & \text{functions} & | & \backslash \var
                            \arrow \expr \\
     & \text{applications} & | & \expr_1 \expr_2 \\
     & \text{sequences} & | & \expr_1 ; \expr_2 \\
     & \text{assignments} & | & \var := \expr \\
-    & \text{annotations} & | & \expr : \tp
+    & \text{annotations} & | & \expr : \tp \\
+    & \text{records} & | & \rcd{\lbl_1=\expr_1, \lbl_2=\expr_2,\dots} \\
+    & \text{variants} & | & L \ \expr \\
+    & \text{case} & | & \case{\expr}{| \pat_1 \arrow \expr_1 | \pat_2 \arrow
+                        \expr_2 \dots} \\
   \end{array}
 \]
 
@@ -148,21 +153,27 @@
 \[
   \begin{array}{lllrl}
     \text{labels} & \lbl & & \\
+    \text{type variables} & \tpvar, \tpvaralt & & \\
+    \text{row type variables} & \rowtpvar & & \\
     \text{contexts} & \declCtx & \define & \cdot \\
     & & | & v = \tp, \declCtx \\
     \text{monomorphic types} & \tpm, \tpmalt & \define & \rcd \uprho  \\
+    & & | & \vnt \uprho \\
+    & & | & \recursive \tpvar \tpm \\
     & & | & \tpm \arrow \tpmalt \\
-    \text{types} & \tp, \tpalt & \define & \forall \tvar. \tp \\
+    \text{types} & \tp, \tpalt & \define & \fa \tpvar \tp \\
     & & | & \tpm \\
     \text{rows} & \row & \define & \emptyrow  \\
     & & | & \lbl : \tp, \row \\
     \text{monomorphic rows} & \rowm & \define & \emptyrow  \\
     & & | & \lbl : \tpm, \rowm  \\
-    \text{records} & \{\row\} & &
   \end{array}
 \]
 
 \subsection{Typing rules}
+
+This section is a little incomplete since the Algorithmic Typing is what matters
+more for the implementation.
 
 \subsubsection{Functions}
 \[
@@ -200,35 +211,51 @@
 
 \section{Algorithmic typing}
 
-Drawing heavy inspiration from \textit{Complete and Easy Bidirectional Typing
-  for Higher-Rank Polymorphism} by Dunfield and Krishnaswami.
-
 \subsection{Terms}
 
 Same as those from the Declarative typing section.
 
-\subsection{Types}
+\subsection{Types and type machinery}
 
 \[
   \begin{array}{lllrl}
     \text{labels} & \lbl & & \\
-    \text{evars} & \evar & & \\
-    \text{tvars} & \tvar & & \\
+    \text{existential variables} & \evar & & \\
+    \text{existential row variables} & \rowvar & & \\
+    \text{type variables} & \tpvar, \tpvaralt & & \\
+    \text{row type variables} & \rowtpvar & & \\
+    \text{base types} & \B & \define & \texttt{Int} | \texttt{Bool} | \dots\\
     \text{contexts} & \ctx, \ctxalt, \ctxaltt & \define & \cdot \\
     & \text{vars} & | & \var : \tp, \ctx \\
     & \text{solved evars} & | & \evar : \tp, \ctx \\
+    & \text{solved row evars} & | & \rowvar : \row, \ctx \\
     & \text{evars} & | & \evar, \ctx \\
     & \text{type vars} & | & \tvar, \ctx \\
     & \text{markers} & | & \marker \evar, \ctx \\
-    \text{monomorphic types} & \uptau, \upsigma & \define & \rcd \uprho  \\
-    & & | & \uptau \arrow \upsigma \\
-    \text{types} & \tp, \tpalt, \tpaltt & \define & \forall \tvar . \tp \\
-    & & | & \uptau \\
+    \text{monomorphic types} & \tpm, \tpmalt & \define & \rcd \uprho  \\
+    & & | & \vnt \uprho \\
+    & & | & \recursive \tpvar \tpm \\
+    & & | & \tpm \arrow \tpmalt \\
+    & & | & \B \\
+    \text{types} & \tp, \tpalt & \define & \fa \tpvar \tp \\
+    & & | & \tpm \\
     \text{rows} & \row & \define & \emptyrow  \\
-    & & | & \lbl : t, \row \\
-    \text{records} & \{\row\} & &
+    & & | & \lbl : \tp, \row \\
+    \text{monomorphic rows} & \rowm & \define & \emptyrow  \\
+    & & | & \lbl : \tpm, \rowm  \\
   \end{array}
 \]
+
+\subsection{A note on quantifiers}
+
+You'll note that there are two quantifiers in Slick: \(\fa \tpvar A\) and \(\far
+\rowvar A\). This is because row tails don't strictly contain types, so it makes
+sense to have a quantifier over just the universe of rows, which is what the
+latter is.
+
+In practice, the two are checked equivalently. All rules pertaining to \(\fa
+\tpvar A\), unless stated otherwise, have mirrored counterparts for \(\far
+\rowvar A\).
 
 \subsection{Typing rules}
 We define algorithmic typing with the following judgments:
@@ -311,7 +338,12 @@ synthesizes output type \(C\) and context \(\ctxalt\).
   \deduct[(\(\to\)App)]
     { \check{\ctx}{e}{A}{\ctxalt} }
     { \presynth{\ctx}{A \to C}{\app}{e}{C}{\ctxalt} }
+  \spc
+  \deduct[(\(\upmu\)App)]
+    { \presynth{\ctx}{\tp[\tpvar \mapsto \recursive \tpvar \tp]}{\app}{e}{C}{\ctxalt} }
+    { \presynth{\ctx}{\recursive \tpvar \tp}{\app}{e}{C}{\ctxalt} }
 \]
+
 
 \[
   \deduct[(\(\ev\alpha\)App)]
@@ -356,6 +388,10 @@ synthesizes output type \(C\) and context \(\ctxalt\).
   \deduct[(RcdPrjR)]
     { \lookup{\Gamma}{R}{l}{C}{\Delta} }
     { \presynth{\Gamma}{R}{\prj}{\lbl}{C}{\Delta} }
+  \spc
+  \deduct[(\(\upmu\)Prj)]
+    { \presynth{\ctx}{\tp[\tpvar \mapsto \recursive \tpvar \tp]}{\prj}{\lbl}{C}{\ctxalt} }
+    { \presynth{\ctx}{\recursive \tpvar \tp}{\prj}{\lbl}{C}{\ctxalt} }
 \]
 
 \noindent
@@ -407,8 +443,8 @@ able to).
   \deduct[(EVar)]{}{\subsumes{\Gamma[\ev\alpha]}{\ev\alpha}{\ev\alpha}{\Gamma[\ev\alpha]}}
   \spc
   \deduct[(Var)]{}{\subsumes{\Gamma[\alpha]}{\alpha}{\alpha}{\Gamma[\alpha]}}
-  % \spc
-  % \deduct[(Const)]{}{\subsumes{\Gamma}{\B}{\B}{\Gamma}}
+  \spc
+  \deduct[(Const)]{}{\subsumes{\Gamma}{\B}{\B}{\Gamma}}
 \]
 
 \[
