@@ -184,6 +184,8 @@ let apply_ctx_expr ctx =
         Expr.Case (go e, List.map (fun (p, e) -> (p, go e)) cs)
       | Expr.Literal l ->
           Expr.Literal l
+      | Expr.Bop (o, a, b) ->
+        Expr.Bop (o, go a, go b)
     in
     {expr; tp}
   in

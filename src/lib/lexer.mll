@@ -63,7 +63,10 @@ rule read =
   | ":=" { WALRUS }
   | "," { COMMA }
   | "." { DOT }
-  | "-" { HYPHEN }
+  | "-" { MINUS }
+  | "+" { PLUS }
+  | "*" { ASTERISK }
+  | "/" { SLASH }
   | string { STRING (Lexing.lexeme lexbuf )}
   | nonnegative_digits { INT (Lexing.lexeme lexbuf |> Z.of_string) } 
   | lower_ident { LOWER_IDENT (Lexing.lexeme lexbuf) }

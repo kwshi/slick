@@ -13,7 +13,9 @@ module Slick = struct end
 %token <string> STRING
 %token BACKSLASH
 %token CASE
-%token HYPHEN
+%token MINUS
+%token PLUS
+%token ASTERISK
 %token LPAREN
 %token RPAREN
 %token ARROW
@@ -25,6 +27,7 @@ module Slick = struct end
 %token COMMA
 %token DOT
 %token PIPE
+%token SLASH
 %token WALRUS
 %token EOF
 
@@ -53,6 +56,16 @@ expr:
 
 expr_body:
   | s = UPPER_IDENT; e = expr_atom { Expr.make_variant s e }
+  | e = expr_op_add { e }
+
+expr_op_add:
+  | a = expr_op_add; PLUS; b = expr_op_mul { Expr.make_bop "+" a b }
+  | a = expr_op_add; MINUS; b = expr_op_mul { Expr.make_bop "-" a b }
+  | e = expr_op_mul { e }
+
+expr_op_mul:
+  | a = expr_op_mul; ASTERISK; b = expr_app { Expr.make_bop "*" a b }
+  | a = expr_op_mul; SLASH; b = expr_app { Expr.make_bop "/" a b }
   | e = expr_app { e }
 
 expr_app:

@@ -2,17 +2,17 @@ open Containers
 open Fun
 
 let rec evaluate (sc : Val.t Scope.t) expr =
+
+  let apply f a = Val.Get.Exn.function_ f @@ evaluate sc a in
+  let apply_to a f = apply f a in
+
   match expr.Ast.Expr.expr with
   | Assign (v, e, b) ->
       evaluate (Scope.add v (evaluate sc e) sc) b
   | Function (v, e) ->
       Function (fun value -> evaluate (Scope.add v value sc) e)
-  | Application (f, e) -> (
-    match evaluate sc f with
-    | Function f' ->
-        f' (evaluate sc e)
-    | _ ->
-        assert false )
+  | Application (f, e) -> 
+    evaluate sc f |> apply_to e
   | Record r ->
       Record (r |> List.map @@ Pair.map2 @@ evaluate sc)
   | Projection (r, lbl) -> (
@@ -60,3 +60,10 @@ let rec evaluate (sc : Val.t Scope.t) expr =
 
      | _ -> assert false
     )
+  | Bop (o, a, b) ->
+    Scope.find o sc
+    |> apply_to a
+    |> apply_to b
+
+  
+    

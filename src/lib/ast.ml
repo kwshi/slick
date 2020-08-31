@@ -32,6 +32,7 @@ module Expr = struct
     | Var_pat of var_name
 
   type 't raw_expr =
+    | Bop of string * 't * 't
     | Assign of var_name * 't * 't
     | Function of (var_name * 't)
     | Application of ('t * 't)
@@ -74,5 +75,7 @@ module Expr = struct
     let make_literal l = make @@ Literal l
 
     let make_case e cs = make @@ Case (e, cs)
+
+    let make_bop o a b = make @@ Bop (o, a, b)
   end
 end

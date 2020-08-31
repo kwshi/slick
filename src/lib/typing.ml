@@ -373,6 +373,18 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
         infer_app new_ctx e1_inferred'.tp e2
       in
       ({expr= Application (e1_inferred', e2_inferred); tp= output_tp}, new_ctx')
+  | Ast.Expr.Bop (o, a, b) ->
+      let t = Ctx.lookup_var o ctx in
+      let a', t', ctx' = infer_app ctx t a in
+      let b', t'', ctx'' = infer_app ctx' t' b in
+      (* DO I NEED AN APPLY_CTX_EXPR HERE *)
+      (* let a'' = Ctx.apply_ctx_expr ctx' a' in *)
+      (* print_debug "infer app: ";
+       * print_tp e1_inferred'.tp;
+       * print_ctx new_ctx; *)
+      (* let b', tp, ctx'' = infer_app ctx' a''.tp b in *)
+      ({expr= Bop (o, a', b'); tp = t''}, ctx'')
+
   | Ast.Expr.Variant (lbl, e) ->
       let e_inferred, new_ctx = infer ctx e in
       let e_inferred' = Ctx.apply_ctx_expr new_ctx e_inferred in
