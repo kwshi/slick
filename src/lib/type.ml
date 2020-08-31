@@ -46,8 +46,7 @@ let rec pp ppf t =
     const pp_row r
     |> Format.within "{" "}"
   | Variant r ->
-    const pp_row r
-    |> Format.within "⟦" "⟧"
+    const pp_variant r
   | Function (a, b) ->
       any "(" ++ const pp a ++ any "@ ->@ " ++ const pp b ++ any ")"
   | EVar ev ->
@@ -74,3 +73,21 @@ and pp_row ppf (es, tl) =
   ++ const (list ~sep:comma (pair ~sep:(any "@ :@ ") string pp)) es
 )
     ppf ()
+
+and pp_variant ppf (es, tl) =
+  let open Fmt in
+  (any "⟦"
+   ++ const (option ~none:nop (pp_tail ++ any "@ |@ ")) tl
+   ++ const (list ~sep:comma pp_variant_entry) es
+   ++ any "⟧"
+  ) ppf ()
+
+and pp_variant_entry ppf (l, t) =
+  let open Fmt in
+  (const string l ++ 
+  match t with
+  | Record ([], None) -> nop
+  | _ -> any "@ :@ " ++ const pp t
+  ) ppf ()
+  
+
