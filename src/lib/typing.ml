@@ -374,9 +374,10 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
       in
       ({expr= Application (e1_inferred', e2_inferred); tp= output_tp}, new_ctx')
   | Ast.Expr.Bop (o, a, b) ->
+      (* We probably should just desugar this to two applications and never have a Bop in the AST *)
       let t = Ctx.lookup_var o ctx in
       let a', t', ctx' = infer_app ctx t a in
-      let b', t'', ctx'' = infer_app ctx' t' b in
+      let b', t'', ctx'' = infer_app ctx' (Ctx.apply_ctx ctx' t') b in
       (* DO I NEED AN APPLY_CTX_EXPR HERE *)
       (* let a'' = Ctx.apply_ctx_expr ctx' a' in *)
       (* print_debug "infer app: ";

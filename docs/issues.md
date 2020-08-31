@@ -29,14 +29,19 @@ destructuring tags in a `case` (but the pattern match must strictly conform to
 the syntax of the tags (see [this issue](#arbitrary-arity-tags))). Our goal is to
 eventually add pattern matching everywhere a variable can occur.
 
-The first - and simplest - step to take would be to add a catch-all match in a
-variant.
-
 ## Arbitrary-arity tags
 
-Similarly, tags must all take a single argument. This means that in order to write
-`True`, you actually have to write `True {}`, because both constructors for the
-boolean type take the empty record as their argument.
+Similarly, tags must all take a single argument. This means that `True` is
+syntactic sugar for `True {}`. This is a fine substitution, but the way that
+case statements handle 0-argument tags reveals that we are actually just
+ignoring their implicit single argument.
+
+```
+slick> def f := \x -> case x | True -> "hi" | False -> "bye"
+<function> : ∀ α18. ∀ α17. (⟦True : α18, False : α17⟧ -> String)
+```
+
+Ideally the type shown here would be `⟦True, False⟧ -> String`.
 
 Pattern matching would solve the multi-arity issue, since you could pattern
 match on records or tuples. However, there needs to be special treatment for
