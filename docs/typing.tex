@@ -440,43 +440,63 @@ records, so you can't use \(\{\lbl_1: \texttt{Bool}, \lbl_2: \texttt{Num}\}\) in
 place of \(\{\lbl_1 : \texttt{Bool}\}\) even though you really \emph{should} be
 able to).
 \[
-  \deduct[(EVar)]{}{\subsumes{\Gamma[\ev\alpha]}{\ev\alpha}{\ev\alpha}{\Gamma[\ev\alpha]}}
+  \deduct[(EVar)]{}{\subsumes{\ctx[\ev\alpha]}{\ev\alpha}{\ev\alpha}{\ctx[\ev\alpha]}}
   \spc
-  \deduct[(Var)]{}{\subsumes{\Gamma[\alpha]}{\alpha}{\alpha}{\Gamma[\alpha]}}
+  \deduct[(Var)]{}{\subsumes{\ctx[\alpha]}{\alpha}{\alpha}{\ctx[\alpha]}}
   \spc
-  \deduct[(Const)]{}{\subsumes{\Gamma}{\B}{\B}{\Gamma}}
+  \deduct[(Const)]{}{\subsumes{\ctx}{\B}{\B}{\ctx}}
 \]
 
 \[
   \deduct[(\(\forall\)L)]
-  { \subsumes{\Gamma, \marker{\ev\alpha}, \ev\alpha}{A[\alpha := \ev\alpha]}{B}{\Delta, \marker{\ev\alpha}, \Theta} }
-  { \subsumes{\Gamma}{\forall \alpha. A}{B}{\Delta} }
+  { \subsumes{\ctx, \marker{\ev\alpha}, \ev\alpha}{A[\alpha := \ev\alpha]}{B}{\Delta, \marker{\ev\alpha}, \Theta} }
+  { \subsumes{\ctx}{\forall \alpha. A}{B}{\Delta} }
   \spc
   \deduct[(\(\forall\)R)]
-  { \subsumes{\Gamma, \alpha}{A}{B}{\Delta, \alpha, \Theta} }
-  { \subsumes{\Gamma}{A}{\forall \alpha. B}{\Delta} }
+  { \subsumes{\ctx, \alpha}{A}{B}{\Delta, \alpha, \Theta} }
+  { \subsumes{\ctx}{A}{\forall \alpha. B}{\Delta} }
 \]
 
 \[
   \deduct[(\(\to\))]
-  { \subsumes{\Gamma}{B_1}{A_1}{\Theta} \spc \subsumes{\Theta}{\apply\Theta A_2}{\apply\Theta B_2}{\Delta} }
-  { \subsumes{\Gamma}{A_1 \to A_2}{B_1 \to B_2}{\Delta} }
+  { \subsumes{\ctx}{B_1}{A_1}{\Theta} \spc \subsumes{\Theta}{\apply\Theta A_2}{\apply\Theta B_2}{\Delta} }
+  { \subsumes{\ctx}{A_1 \to A_2}{B_1 \to B_2}{\Delta} }
 \]
 
 \[
   \deduct[InstantiateL]
-  {\ev \alpha \notin FV(A) \spc \instL{\Gamma[\ev \alpha]}{\ev
+  {\evar \notin FV(A) \spc \instL{\ctx[\evar]}{\ev
       \alpha}{A}{\Delta}}
-  {\subsumes{\Gamma[\ev \alpha]}{\ev \alpha}{A}{\Delta}}
+  {\subsumes{\ctx[\evar]}{\evar}{A}{\Delta}}
   \spc
   \deduct[InstantiateR]
-  {\ev \alpha \notin FV(A) \spc \instR{\Gamma[\ev \alpha]}{A}{\ev
+  {\evar \notin FV(A) \spc \instR{\ctx[\evar]}{A}{\ev
       \alpha}{\Delta}}
-  {\subsumes{\Gamma[\ev \alpha]}{A}{\ev \alpha}{\Delta}}
+  {\subsumes{\ctx[\evar]}{A}{\evar}{\Delta}}
 \]
 
 \[
-  \deduct[Record]{\subsumes{\Gamma}{R_0}{R_1}{\Delta}}{\subsumes{\Gamma}{\{R_0\}}{\{R_1\}}{\Delta}}
+  \deduct[InstantiateL\(\upmu\)]
+  {\evar \in FV(A) \spc \instL{\ctx[\evar]}{\ev
+      \alpha}{\recursive \tpvar A[\evar \mapsto \tpvar]}{\Delta}}
+  {\subsumes{\ctx[\evar]}{\evar}{A}{\Delta}}
+\]
+\[
+  \deduct[InstantiateR\(\upmu\)]
+  {\evar \in FV(A) \spc \instR{\ctx[\evar]}{\recursive \tpvar A[\evar \mapsto \tpvar]}{\ev
+      \alpha}{\Delta}}
+  {\subsumes{\ctx[\evar]}{A}{\evar}{\Delta}}
+\]
+
+The above rules for recursive types will likely be changed to be more
+restrictive: probably only when \(A\) is a record or variant (or perhaps
+contains one).
+
+\[
+  \deduct[(Record)]{\subsumes{\ctx}{R_0}{R_1}{\Delta}}{\subsumes{\ctx}{\{R_0\}}{\{R_1\}}{\Delta}}
+  \spc
+  \deduct[(Variant)]{\subsumes{\ctx}{R_0}{R_1}{\Delta}}{\subsumes{\ctx}{\vnt {R_0}}{\vnt
+    {R_1}}{\Delta}}
 \]
 
 For this rule, we treat the rows as sets and assume they are reordered so that
@@ -495,33 +515,33 @@ intersection and difference of the rows.
   \deduct[(Row Nil)]{}{ \subsumes{\Gamma}{\cdot}{\cdot}{\Gamma} }
 \]
 
-% \[
-%   \deduct[(RowMissingL)]
-%   {\instL{\Gamma[\evar]}{\evar}{r}{\Delta}}
-%   {\subsumes{\Gamma[\evar], \cdot}{\evar}{r}{\Delta}}
-%   \spc
-%   \deduct[(RowMissingR)]
-%   {\instR{\Gamma[\evar]}{r}{\evar}{\Delta}}
-%   {\subsumes{\Gamma[\evar], \cdot}{r}{\evar}{\Delta}}
-% \]
+\[
+  \deduct[(RowMissingL)]
+  {\instL{\Gamma[\evar]}{\evar}{r}{\Delta}}
+  {\subsumes{\Gamma[\evar], \cdot}{\evar}{r}{\Delta}}
+  \spc
+  \deduct[(RowMissingR)]
+  {\instR{\Gamma[\evar]}{r}{\evar}{\Delta}}
+  {\subsumes{\Gamma[\evar], \cdot}{r}{\evar}{\Delta}}
+\]
 
-% This rule also treats the rows as sets and assumes that there are no equal
-% labels between the two rows. Assume an analagous rule for a different order of
-% EVars (the order doesn't matter).
-% \[
-%   \deduct[(RowMissingLR)]
-%   {\subsumes{\Gamma}{\evar}{m_1 : B_1, m_2 : B_2, \dots}{\Theta} \spc
-%     \subsumes{\Theta}{\lbl_1 : \apply\Theta A_1, \lbl_2 : \apply\Theta A_2,
-%       \dots}{\evaralt}{\Delta}}
-%   {\subsumes{\Gamma[\evar][\evaralt]}{\lbl_1 : A_1, \lbl_2 : A_2, \dots, \evar}{m_1 :
-%       B_1, m_2 : B_2, \dots, \evaralt}{\Delta}}
-% \]
+This rule also treats the rows as sets and assumes that there are no equal
+labels between the two rows. Assume an analagous rule for a different order of
+EVars (the order doesn't matter).
+\[
+  \deduct[(RowMissingLR)]
+  {\subsumes{\Gamma}{\evar}{m_1 : B_1, m_2 : B_2, \dots}{\Theta} \spc
+    \subsumes{\Theta}{\lbl_1 : \apply\Theta A_1, \lbl_2 : \apply\Theta A_2,
+      \dots}{\evaralt}{\Delta}}
+  {\subsumes{\Gamma[\evar][\evaralt]}{\lbl_1 : A_1, \lbl_2 : A_2, \dots, \evar}{m_1 :
+      B_1, m_2 : B_2, \dots, \evaralt}{\Delta}}
+\]
 
-% \[
-%   \deduct[(RowTailReach)]
-%   {}
-%   {\subsumes{\Gamma[\evar][\evaralt]}{\evar}{\evaralt}{\Gamma[\evar][\evaralt=\evar]}}
-% \]
+\[
+  \deduct[(RowTailReach)]
+  {}
+  {\subsumes{\Gamma[\evar][\evaralt]}{\evar}{\evaralt}{\Gamma[\evar][\evaralt=\evar]}}
+\]
 
 
 \subsection{Instantiation}
