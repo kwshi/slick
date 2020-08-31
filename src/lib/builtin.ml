@@ -55,6 +55,15 @@ let vals =
   , (let open Type in
      Function (Primitive Int, Primitive Int)
     )
+  ; "print"
+  , (let open Val in
+       Function
+         (Val.Get.Exn.primitive 
+          %> Val.Primitive.Get.Exn.str
+          %> print_endline
+          %> const (Val.Record [])))
+     , (let open Type in
+        Function (Primitive String, unit))
   ]
 
 let scope, ctx =
