@@ -246,6 +246,6 @@ False {} : ⟦True : {}, False : {}⟧
 
 Slick supports only `Int` and `String` right now (and bindings to `String` are
 less complete than those to `Int`). However, that doesn't mean Slick is wholly
-unusable, as you can make ad-hoc user-defined types very easily.
+unusable, as you can make ad-hoc types very easily.
 
 ## Tags

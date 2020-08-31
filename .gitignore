@@ -29,7 +29,7 @@ setup.log
 _opam/
 
 # Generated files
-*.pdf
+# *.pdf
 
 # Editor files
 auto
