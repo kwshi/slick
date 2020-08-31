@@ -186,6 +186,8 @@ let apply_ctx_expr ctx =
           Expr.Literal l
       | Expr.Bop (o, a, b) ->
         Expr.Bop (o, go a, go b)
+      | Expr.Uop (o, a) ->
+        Expr.Uop (o, go a)
     in
     {expr; tp}
   in

@@ -385,6 +385,11 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
        * print_ctx new_ctx; *)
       (* let b', tp, ctx'' = infer_app ctx' a''.tp b in *)
       ({expr= Bop (o, a', b'); tp = t''}, ctx'')
+  | Ast.Expr.Uop (o, a) ->
+      let t = Ctx.lookup_var o ctx in
+      let a', t', ctx' = infer_app ctx t a in
+      ({expr= Uop(o, a'); tp = t'}, ctx')
+
 
   | Ast.Expr.Variant (lbl, e) ->
       let e_inferred, new_ctx = infer ctx e in

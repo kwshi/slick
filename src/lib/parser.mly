@@ -100,8 +100,12 @@ expr_op_add:
   | e = expr_op_mul { e }
 
 expr_op_mul:
-  | a = expr_op_mul; ASTERISK; b = expr_app { Expr.make_bop "*" a b }
-  | a = expr_op_mul; SLASH; b = expr_app { Expr.make_bop "/" a b }
+  | a = expr_op_mul; ASTERISK; b = expr_op_neg { Expr.make_bop "*" a b }
+  | a = expr_op_mul; SLASH; b = expr_op_neg { Expr.make_bop "/" a b }
+  | e = expr_op_neg { e }
+
+expr_op_neg:
+  | MINUS; e = expr_app { Expr.make_uop "$-" e }
   | e = expr_app { e }
   | e = expr_variant { e }
 

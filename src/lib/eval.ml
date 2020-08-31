@@ -64,6 +64,9 @@ let rec evaluate (sc : Val.t Scope.t) expr =
     Scope.find o sc
     |> apply_to a
     |> apply_to b
+  | Uop (o, a) ->
+    Scope.find o sc
+    |> apply_to a
 
   
     
