@@ -41,9 +41,12 @@ let newline = "\r" | "\n" | "\r\n"
 
 let white = [' ' '\t']+
 
+let comment = '#' [^ '\n']*
+
 rule read =
   parse
   | white { read lexbuf }
+  | comment { read lexbuf }
   | newline { next_line lexbuf; read lexbuf }
   | "case" { CASE }
   | "def" { DEF }
