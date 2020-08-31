@@ -1,15 +1,18 @@
-# Learn Slick in 10 minutes
+# Learn Slick in 10 minutes*
 
-What follows is a quick tutorial on how to use Slick. Every time you see a code block like
+\* Duration dependent upon frame of reference.
+
+This is a quick tutorial on all the major language features of Slick. Every time
+you see a code block like
 
 ```
-slick> "hello!"
-"hello!" : String
+slick> 314
+314 : Int
 ```
 
 that's an invocation of the Slick REPL. The code after `slick>` is executed to
-give an output on the line below. The output consists of a value (`"hello!"`)
-and its corresponding type (`String`), denoted by the colon.
+give an output on the line below. The output consists of a value (`314`)
+and its corresponding type (`Int`), separated by a colon.
 
 ## Introduction to functions
 
