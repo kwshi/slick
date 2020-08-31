@@ -12,6 +12,7 @@ module Slick = struct end
 %token <Z.t> INT
 %token BACKSLASH
 %token CASE
+%token DEF
 %token HYPHEN
 %token LPAREN
 %token RPAREN
