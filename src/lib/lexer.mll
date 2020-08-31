@@ -46,6 +46,7 @@ rule read =
   | white { read lexbuf }
   | newline { next_line lexbuf; read lexbuf }
   | "case" { CASE }
+  | "def" { DEF }
   | "\\" { BACKSLASH }
   | "->" { ARROW }
   | "(" { LPAREN }

@@ -79,3 +79,13 @@ module Expr = struct
     let make_bop o a b = make @@ Bop (o, a, b)
   end
 end
+
+module Module = struct
+  type 'tp t = (string * 'tp Expr.t) list
+end
+
+module Repl = struct
+  type 'tp t = 
+    | Def of string * 'tp Expr.t
+    | Expr of 'tp Expr.t
+end

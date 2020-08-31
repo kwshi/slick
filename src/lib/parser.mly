@@ -13,6 +13,7 @@ module Slick = struct end
 %token <string> STRING
 %token BACKSLASH
 %token CASE
+%token DEF
 %token MINUS
 %token PLUS
 %token ASTERISK
@@ -38,6 +39,8 @@ module Slick = struct end
 %token EOF
 
 %start <Ast.Expr.Untyped.t> prog
+%start <unit Ast.Module.t> module_
+%start <unit Ast.Repl.t> repl
 
 %%
 
@@ -54,8 +57,26 @@ function_type:
 
 *)
 
+module_:
+  | m = module_entries; EOF { m }
+
+module_entries:
+  | m = rev_module_entries { List.rev m }
+
+rev_module_entries:
+  | { [] }
+  | m = rev_module_entries; e = module_entry { e :: m }
+
+module_entry:
+  | DEF; s = LOWER_IDENT; WALRUS; e = expr { (s, e) }
+
+repl:
+  | e = expr; EOF { Ast.Repl.Expr e }
+  | e = module_entry; EOF { let s, e = e in Ast.Repl.Def (s, e) }
+  | s = LOWER_IDENT; WALRUS; e = expr; EOF { Ast.Repl.Def (s, e) }
+
 expr:
-  | v = LOWER_IDENT; WALRUS; e = expr; SEMICOLON; b = expr { Expr.make_assign v e b }
+  | v = LOWER_IDENT; WALRUS; e = expr_body; SEMICOLON; b = expr { Expr.make_assign v e b }
   | f = function_expr { f }
   | CASE; e = expr_body; l = rev_case_entries { Expr.make_case e (List.rev l) }
   | e = expr_body { e }
