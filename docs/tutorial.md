@@ -136,7 +136,59 @@ take multiple arguments in Slick!
 
 ## Introducing: records
 
+Records are kind of like Objects in Javascript, and they have a somewhat similar
+syntax. The important difference is that in Slick, accessing a record is always
+guaranteed to work! 
 
+Let's dive right in with an example:
+
+```
+slick> { x = 12, y = 5 }
+{x = 12, y = 5} : {x : Int, y : Int}
+```
+
+This is a record with two fields: `x` and `y`, both of type `Int`. We can access
+the fields using `.`, like in `record.field_name`.
+
+```
+slick> { x = 12, y = 5 }.x
+12 : Int
+```
+
+Can we use records as inputs to our functions? We totally can. And we don't even
+need to specify that we expect an input that is of the record type, we can just
+use it like a record and Slick will infer its type for us.
+
+```
+slick> (\record -> record.x) {x = 12, y = 5}
+12 : Int
+```
+
+So we can use records to obtain multiple arguments to our functions.
+
+```
+slick> (\args -> args.f args.x) {f = \x -> x, x = 3}
+3 : Int
+```
+
+What's happening here? Remember how functions are just regular values? We
+defined a function `\args -> args.f args.x` that expects a record `args`
+containing a field `f`, which is a function, and a field `x`, which is an
+argument of `f`. We then apply `f` to `x`.
+
+## Extending our knowledge of records
+
+Records can be extended, which means adding other fields to them.
+
+```
+slick> {{x = 3} | y = 4, z = 5}
+{z = 5, y = 4, x = 3} : {z : Int, y : Int, x : Int}
+```
+
+This extension will also (in the future) update any fields if the original
+record has them. So if I extend `{x = 3}` with the field `x = \y -> y`, the type
+and value of the record will be updated accordingly. Updating is currently
+bugged, so we don't include an example of it in the REPL.
 
 ## Integers
 
@@ -192,3 +244,5 @@ False {} : ⟦True : {}, False : {}⟧
 Slick supports only `Int` and `String` right now (and bindings to `String` are
 less complete than those to `Int`). However, that doesn't mean Slick is wholly
 unusable, as you can make ad-hoc user-defined types very easily.
+
+## Tags
