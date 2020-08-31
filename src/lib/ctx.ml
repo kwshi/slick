@@ -174,8 +174,8 @@ let apply_ctx_expr ctx =
           Expr.Variant (v, go e)
       | Expr.Var v ->
           Expr.Var v
-      | Expr.Assign (v, e) ->
-          Expr.Assign (v, go e)
+      | Expr.Assign (v, e1, e2) ->
+          Expr.Assign (v, go e1, go e2)
       | Expr.Projection (r, lbl) ->
           Expr.Projection (go r, lbl)
       | Expr.Extension (lbl, e, r) ->
@@ -184,8 +184,6 @@ let apply_ctx_expr ctx =
         Expr.Case (go e, List.map (fun (p, e) -> (p, go e)) cs)
       | Expr.Literal l ->
           Expr.Literal l
-      | Expr.Sequence (e1, e2) ->
-        Expr.Sequence (go e1, go e2)
     in
     {expr; tp}
   in

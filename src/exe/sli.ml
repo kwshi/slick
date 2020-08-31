@@ -46,57 +46,51 @@ let pp =
        (styled `Faint Slick.Type.pp))
   ++ const Format.pp_print_newline ()
 
-let rec repl sc =
-  match LNoise.linenoise "slick> " with
-  | None ->
-    let open Fmt in
-    styled (`Fg (`Hi `Magenta)) (any "[exiting]") stderr () ;
-    exit 0
-  | exception Sys.Break ->
-    let open Fmt in
-    ( styled (`Fg (`Hi `Magenta)) (any "[interrupted]")
-      ++ Format.pp_print_newline )
-      stderr ()
-  | Some s -> (
-      match String.trim s with
-      | "" ->
-        repl sc
-          
-      | input ->
-        let err pp = 
-          let open Fmt in
-          (styled (`Fg (`Hi `Red)) (hovbox pp)
-           ++ Format.pp_print_newline
-          ) stderr ()
-        ; repl sc
-        in
-        LNoise.history_add input |> ignore ;
-        match 
-          Lexing.from_string input
-          |> Slick.Parser.prog Slick.Lexer.read
-          |> Slick.Typing.infer_top Slick.Builtin.ctx
-        with
-        | exception Failure s ->
-          err @@ Fmt.(const string s)
-                   
-        | exception Slick.Ast.SyntaxError s ->
-          err @@ Fmt.(styled `Bold (any "syntax@ error:@ ") ++ const string s)
-                   
-        | exception Slick.Parser.Error ->
-          err @@ Fmt.(styled `Bold @@ any "syntax error")
-                   
-        | expr, _ ->
-          let v, sc' = Slick.Eval.evaluate sc expr in
-          (pp Fmt.stdout
-            ( v, expr.Slick.Ast.Expr.tp ) 
-          ; repl sc')
-    )
-
-
 let () =
   Fmt.(set_style_renderer stdout `Ansi_tty) ;
   Fmt.(set_style_renderer stderr `Ansi_tty) ;
   LNoise.catch_break true ;
   LNoise.set_multiline true ;
   pp_logo Fmt.stderr () ;
-  repl Slick.Builtin.scope
+  while true do
+    match LNoise.linenoise "slick> " with
+    | None ->
+        let open Fmt in
+        styled (`Fg (`Hi `Magenta)) (any "[exiting]") stderr () ;
+        exit 0
+    | exception Sys.Break ->
+        let open Fmt in
+        ( styled (`Fg (`Hi `Magenta)) (any "[interrupted]")
+        ++ Format.pp_print_newline )
+          stderr ()
+    | Some s -> (
+      match String.trim s with
+      | "" ->
+          ()
+      | input ->
+        let err pp = 
+          let open Fmt in
+          (styled (`Fg (`Hi `Red)) (hovbox pp)
+           ++ Format.pp_print_newline
+          ) stderr ()
+        in
+          LNoise.history_add input |> ignore ;
+          match 
+            Lexing.from_string input
+            |> Slick.Parser.prog Slick.Lexer.read
+            |> Slick.Typing.infer_top Slick.Builtin.ctx
+          with
+          | exception Failure s ->
+            err @@ Fmt.(const string s)
+
+          | exception Slick.Ast.SyntaxError s ->
+            err @@ Fmt.(styled `Bold (any "syntax@ error:@ ") ++ const string s)
+
+          | exception Slick.Parser.Error ->
+            err @@ Fmt.(styled `Bold @@ any "syntax error")
+
+          | expr, _ ->
+            pp Fmt.stdout
+              ( Slick.Eval.evaluate Slick.Builtin.scope expr
+              , expr.Slick.Ast.Expr.tp ) )
+  done

@@ -1,64 +1,62 @@
 open Containers
 open Fun
 
-let rec evaluate (sc : Val.t Scope.t) expr : Val.t * Val.t Scope.t =
+let rec evaluate (sc : Val.t Scope.t) expr =
   match expr.Ast.Expr.expr with
-  | Assign (var, e) ->
-    let v, _ = evaluate sc e in
-    v, Scope.add var v sc
-
+  | Assign (v, e, b) ->
+      evaluate (Scope.add v (evaluate sc e) sc) b
   | Function (v, e) ->
-    Val.Function (fun value -> fst @@ evaluate (Scope.add v value sc) e),
-    sc
-
+      Function (fun value -> evaluate (Scope.add v value sc) e)
   | Application (f, e) -> (
     match evaluate sc f with
-    | Function f', _ ->
-        f' (fst @@ evaluate sc e), sc
+    | Function f' ->
+        f' (evaluate sc e)
     | _ ->
         assert false )
-
   | Record r ->
-    Record (r |> List.map @@ Pair.map2 @@ (evaluate sc %> fst)),
-    sc
-
-  | Projection (r, k) -> (
+      Record (r |> List.map @@ Pair.map2 @@ evaluate sc)
+  | Projection (r, lbl) -> (
     match evaluate sc r with
-    | Record r', _ ->
-      snd @@ List.find (fun (k', _) -> String.equal k k') r',
-      sc
+    | Record r' ->
+        snd @@ List.find (fun (lbl', _) -> String.(equal lbl lbl')) r'
     | _ ->
         assert false )
-  | Extension (k, e, r) -> (
+  | Extension (lbl, e, r) -> (
     match evaluate sc r with
-    | Record r', _ ->
-      Record ((k, fst @@ evaluate sc e) :: r'),
-      sc
+    | Record r' ->
+        Record ((lbl, evaluate sc e) :: r')
     | _ ->
         assert false )
   | Variant (v, e) ->
-      Variant (v, fst @@ evaluate sc e)
-    , sc
+      Variant (v, evaluate sc e)
   | Var v ->
-      Scope.find v sc, sc
+      Scope.find v sc
   | Literal l ->
-      Primitive (match l with
-                | Int n -> Int n
-                | String s -> String s), sc
-  | Case (e, cs) ->
-    let e', _ = evaluate sc e in
-    (match e' with
-    | Variant (v, variant_inner) ->
-      let case_branch = List.find (function | (Ast.Expr.Tag_pat (lbl, _), _) -> String.equal v lbl
-                                            | (Ast.Expr.Var_pat _, _) -> true) cs
-      in
-      (match case_branch with
-      | (Ast.Expr.Tag_pat (_, var), body) ->
-        fst @@ evaluate (Scope.add var variant_inner sc) body, sc
-      | (Ast.Expr.Var_pat var, body) ->
-        fst @@ evaluate (Scope.add var e' sc) body, sc
+    Primitive
+      (match l with
+       | Int n -> Int n
+       | String s -> String s
       )
-    | _ -> assert false
+  | Case (e, cs) ->
+    (match evaluate sc e with
+     | Variant (tag, e) ->
+       let sc', e' =
+         List.find_map
+           (function
+             | (Ast.Expr.Tag_pat (tag', var), e') when String.equal tag tag' ->
+               Some (Scope.add var e sc, e')
+                 
+             | (Var_pat var, e') ->
+               Some (Scope.add var (Val.Variant (tag, e)) sc, e')
+                 
+             | _ ->
+               None
+                 
+           )
+           cs
+         |> Option.get_exn
+       in
+       evaluate sc' e'
+
+     | _ -> assert false
     )
-  | Sequence (e1, e2) ->
-    evaluate (snd @@ evaluate sc e1) e2

@@ -32,7 +32,7 @@ module Expr = struct
     | Var_pat of var_name
 
   type 't raw_expr =
-    | Assign of var_name * 't
+    | Assign of var_name * 't * 't
     | Function of (var_name * 't)
     | Application of ('t * 't)
     | Record of 't record
@@ -42,8 +42,6 @@ module Expr = struct
     | Var of var_name
     | Literal of literal
     | Case of ('t * (pattern * 't) list)
-    | Sequence of 't * 't
-
   and 'annotated_expr record = (label * 'annotated_expr) list
 
   and 'tp t = {tp: 'tp; expr: 'tp t raw_expr}
@@ -71,12 +69,10 @@ module Expr = struct
 
     let make_var v = make @@ Var v
 
-    let make_assign v e = make @@ Assign (v, e)
+    let make_assign v e b = make @@ Assign (v, e, b)
 
     let make_literal l = make @@ Literal l
 
     let make_case e cs = make @@ Case (e, cs)
-
-    let make_sequence e1 e2 = make @@ Sequence (e1, e2)
   end
 end
