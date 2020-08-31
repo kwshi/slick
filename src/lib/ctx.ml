@@ -108,7 +108,7 @@ let get_ctx_after ce =
 
    apply_ctx ctx tp = {x: evar 1 } -> {}
 *)
-let apply_ctx ctx =
+let rec apply_ctx ctx =
   let rec go = function
     | Type.Record r ->
         Type.Record (row r)
@@ -136,19 +136,27 @@ let apply_ctx ctx =
       Type.Variant (row r)
   and row (l, t) =
     let l' = List.map (Pair.map2 go) l in
-    match t with
-    | Some (Tail_evar ev) ->
-        ctx.context
-        |> List.find_map (function
-             | Row_evar_assignment (ev', r) when Int.(ev = ev') ->
-                 Some (row r)
-             | _ ->
-                 None)
-        |> Option.map_or ~default:(l', t) (fun (l'', t') -> (l' @ l'', t'))
-    | _ ->
-        (l', t)
+    match apply_ctx_tail ctx t with
+    | `Solved r   ->
+      let (l'', t') = row r in
+      (l'' @ l', t')
+    | `Unsolved t -> (l', t)
   in
   go
+
+and apply_ctx_tail ctx t =
+  match t with
+  | Some (Tail_evar ev) ->
+      ctx.context
+      |> List.find_map (function
+            | Row_evar_assignment (ev', r) when Int.(ev = ev') ->
+                Some (`Solved r)
+            | _ ->
+                None)
+      |> Option.get_or ~default:(`Unsolved t)
+  | _ ->
+      `Unsolved t
+
 
 let apply_ctx_expr ctx =
   let open Ast in
