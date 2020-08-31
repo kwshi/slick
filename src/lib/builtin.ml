@@ -46,6 +46,7 @@ let vals =
   ; int_comp "<" Z.lt
   ; int_comp ">" Z.gt
   ; int_comp "==" Z.equal
+  ; int_comp "!=" (fun a b -> not @@ Z.equal a b)
   ; "$-"
   , (let open Val in
      Function

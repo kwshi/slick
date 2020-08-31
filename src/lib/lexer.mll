@@ -63,6 +63,12 @@ rule read =
   | '+' { PLUS }
   | '*' { ASTERISK }
   | '/' { SLASH }
+  | "<" { LT }
+  | "<=" { LE }
+  | ">" { GT }
+  | ">=" { GE }
+  | "==" { EQ }
+  | "!=" { NE }
   | '"' { STRING (read_string (Buffer.create 16) lexbuf) }
   | nonnegative_digits { INT (Lexing.lexeme lexbuf |> Z.of_string) } 
   | lower_ident { LOWER_IDENT (Lexing.lexeme lexbuf) }

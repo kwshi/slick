@@ -28,6 +28,12 @@ module Slick = struct end
 %token DOT
 %token PIPE
 %token SLASH
+%token GE
+%token GT
+%token LE
+%token LT
+%token EQ
+%token NE
 %token WALRUS
 %token EOF
 
@@ -56,7 +62,15 @@ expr:
 
 expr_body:
   | s = UPPER_IDENT; e = expr_atom { Expr.make_variant s e }
-  | e = expr_op_add { e }
+  | e = expr_op_comp { e }
+
+expr_op_comp:
+  | a = expr_op_add; LT; b = expr_op_add { Expr.make_bop "<" a b }
+  | a = expr_op_add; LE; b = expr_op_add { Expr.make_bop "<=" a b }
+  | a = expr_op_add; GT; b = expr_op_add { Expr.make_bop ">" a b }
+  | a = expr_op_add; GE; b = expr_op_add { Expr.make_bop ">=" a b }
+  | a = expr_op_add; EQ; b = expr_op_add { Expr.make_bop "==" a b }
+  | a = expr_op_add; NE; b = expr_op_add { Expr.make_bop "!=" a b }
 
 expr_op_add:
   | a = expr_op_add; PLUS; b = expr_op_mul { Expr.make_bop "+" a b }
