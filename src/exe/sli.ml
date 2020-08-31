@@ -50,6 +50,7 @@ let () =
   Fmt.(set_style_renderer stdout `Ansi_tty) ;
   Fmt.(set_style_renderer stderr `Ansi_tty) ;
   LNoise.catch_break true ;
+  LNoise.set_multiline true ;
   pp_logo Fmt.stderr () ;
   while true do
     match LNoise.linenoise "slick> " with
@@ -67,13 +68,29 @@ let () =
       | "" ->
           ()
       | input ->
+        let err pp = 
+          let open Fmt in
+          (styled (`Fg (`Hi `Red)) (hovbox pp)
+           ++ Format.pp_print_newline
+          ) stderr ()
+        in
           LNoise.history_add input |> ignore ;
-          let expr, _ =
+          match 
             Lexing.from_string input
             |> Slick.Parser.prog Slick.Lexer.read
             |> Slick.Typing.infer_top Slick.Builtin.ctx
-          in
-          pp Fmt.stdout
-            ( Slick.Eval.evaluate Slick.Builtin.scope expr
-            , expr.Slick.Ast.Expr.tp ) )
+          with
+          | exception Failure s ->
+            err @@ Fmt.(const string s)
+
+          | exception Slick.Ast.SyntaxError s ->
+            err @@ Fmt.(styled `Bold (any "syntax@ error:@ ") ++ const string s)
+
+          | exception Slick.Parser.Error ->
+            err @@ Fmt.(styled `Bold @@ any "syntax error")
+
+          | expr, _ ->
+            pp Fmt.stdout
+              ( Slick.Eval.evaluate Slick.Builtin.scope expr
+              , expr.Slick.Ast.Expr.tp ) )
   done

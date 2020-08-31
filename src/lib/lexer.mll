@@ -11,7 +11,7 @@ let next_line lb =
   }
 }
 
-let lower_ident = ['a'-'z'] ['a'-'z' 'A'-'Z' '0'-'9' '_']*
+let lower_ident = ['a'-'z'] ['a'-'z' 'A'-'Z' '0'-'9' '_']* | '_'
 
 let upper_ident = ['A'-'Z'] ['a'-'z' 'A'-'Z' '0'-'9' '_']*
 

@@ -25,6 +25,9 @@ type t =
 
 and row = (label * t) list * tail option
 
+let unit = Record ([], None)
+let bool = Variant (["True", unit; "False", unit], None)
+
 let pp_tail ppf tl =
   let open Fmt in
   ( match tl with
@@ -42,7 +45,7 @@ let rec pp ppf t =
     |> Format.within "{" "}"
   | Variant r ->
     const pp_row r
-    |> Format.within "⟨" "⟩"
+    |> Format.within "⟦" "⟧"
   | Function (a, b) ->
       any "(" ++ const pp a ++ any "@ ->@ " ++ const pp b ++ any ")"
   | EVar ev ->
