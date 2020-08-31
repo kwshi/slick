@@ -86,6 +86,7 @@ end
 
 module Repl = struct
   type 'tp t = 
+    | Empty
     | Def of string * 'tp Expr.t
     | Expr of 'tp Expr.t
 end

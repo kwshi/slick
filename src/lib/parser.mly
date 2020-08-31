@@ -71,6 +71,7 @@ module_entry:
   | DEF; s = LOWER_IDENT; WALRUS; e = expr { (s, e) }
 
 repl:
+  | EOF { Ast.Repl.Empty }
   | e = expr; EOF { Ast.Repl.Expr e }
   | e = module_entry; EOF { let s, e = e in Ast.Repl.Def (s, e) }
   | s = LOWER_IDENT; WALRUS; e = expr; EOF { Ast.Repl.Def (s, e) }
@@ -117,7 +118,7 @@ expr_app:
 expr_atom:
   | LPAREN; e = expr; RPAREN { e }
   | r = record_expr { Expr.make_record r }
-  | v = LOWER_IDENT { Expr.make_var v }
+  | v = LOWER_IDENT { if String.equal v "_" then raise @@ Ast.SyntaxError "`_` cannot be used as variable" else Expr.make_var v }
   | r = expr_atom; DOT; l = LOWER_IDENT { Expr.make_projection r l }
   | n = INT { Expr.(make_literal (Int n)) }
   | s = STRING { Expr.(make_literal (String s))}
