@@ -1,42 +1,54 @@
 open Containers
 open Fun
 
-let rec evaluate (sc : Val.t Scope.t) expr =
+let rec evaluate (sc : Val.t Scope.t) expr : Val.t * Val.t Scope.t =
   match expr.Ast.Expr.expr with
-  | Assign (v, e, b) ->
-      evaluate (Scope.add v (evaluate sc e) sc) b
+  | Assign (var, e) ->
+    let v, _ = evaluate sc e in
+    v, Scope.add var v sc
+
   | Function (v, e) ->
-      Function (fun value -> evaluate (Scope.add v value sc) e)
+    Val.Function (fun value -> fst @@ evaluate (Scope.add v value sc) e),
+    sc
+
   | Application (f, e) -> (
     match evaluate sc f with
-    | Function f' ->
-        f' (evaluate sc e)
+    | Function f', _ ->
+        f' (fst @@ evaluate sc e), sc
     | _ ->
         assert false )
+
   | Record r ->
-      Record (r |> List.map @@ Pair.map2 @@ evaluate sc)
-  | Projection (r, lbl) -> (
+    Record (r |> List.map @@ Pair.map2 @@ (evaluate sc %> fst)),
+    sc
+
+  | Projection (r, k) -> (
     match evaluate sc r with
-    | Record r' ->
-        snd @@ List.find (fun (lbl', _) -> String.(equal lbl lbl')) r'
+    | Record r', _ ->
+      snd @@ List.find (fun (k', _) -> String.equal k k') r',
+      sc
     | _ ->
         assert false )
-  | Extension (lbl, e, r) -> (
+  | Extension (k, e, r) -> (
     match evaluate sc r with
-    | Record r' ->
-        Record ((lbl, evaluate sc e) :: r')
+    | Record r', _ ->
+      Record ((k, fst @@ evaluate sc e) :: r'),
+      sc
     | _ ->
         assert false )
   | Variant (v, e) ->
-      Variant (v, evaluate sc e)
+      Variant (v, fst @@ evaluate sc e)
+    , sc
   | Var v ->
-      Scope.find v sc
+      Scope.find v sc, sc
   | Literal l ->
-      Primitive (match l with Int n -> Int n)
+      Primitive (match l with Int n -> Int n), sc
   | Case (e, cs) ->
     (match evaluate sc e with
-    | Variant (v, e) ->
+    | Variant (v, e), _ ->
       let _, p, b = List.find (fun (c, _, _) -> String.equal v c) cs in
-      evaluate (Scope.add p e sc) b
+      fst @@ evaluate (Scope.add p e sc) b, sc
     | _ -> assert false
     )
+  | Sequence (e1, e2) ->
+    evaluate (snd @@ evaluate sc e1) e2
