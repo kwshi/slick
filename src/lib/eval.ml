@@ -46,10 +46,18 @@ let rec evaluate (sc : Val.t Scope.t) expr : Val.t * Val.t Scope.t =
                 | Int n -> Int n
                 | String s -> String s), sc
   | Case (e, cs) ->
-    (match evaluate sc e with
-    | Variant (v, e), _ ->
-      let _, p, b = List.find (fun (c, _, _) -> String.equal v c) cs in
-      fst @@ evaluate (Scope.add p e sc) b, sc
+    let e', _ = evaluate sc e in
+    (match e' with
+    | Variant (v, variant_inner) ->
+      let case_branch = List.find (function | (Ast.Expr.Tag_pat (lbl, _), _) -> String.equal v lbl
+                                            | (Ast.Expr.Var_pat _, _) -> true) cs
+      in
+      (match case_branch with
+      | (Ast.Expr.Tag_pat (_, var), body) ->
+        fst @@ evaluate (Scope.add var variant_inner sc) body, sc
+      | (Ast.Expr.Var_pat var, body) ->
+        fst @@ evaluate (Scope.add var e' sc) body, sc
+      )
     | _ -> assert false
     )
   | Sequence (e1, e2) ->

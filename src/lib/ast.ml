@@ -27,6 +27,10 @@ module Expr = struct
     | String of string
     | Int of Z.t
 
+  type pattern =
+    | Tag_pat of (label * var_name)
+    | Var_pat of var_name
+
   type 't raw_expr =
     | Assign of var_name * 't
     | Function of (var_name * 't)
@@ -37,7 +41,7 @@ module Expr = struct
     | Variant of (string * 't)
     | Var of var_name
     | Literal of literal
-    | Case of ('t * (string * string * 't) list)
+    | Case of ('t * (pattern * 't) list)
     | Sequence of 't * 't
 
   and 'annotated_expr record = (label * 'annotated_expr) list

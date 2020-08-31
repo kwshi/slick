@@ -79,7 +79,8 @@ rev_case_entries:
   | l = rev_case_entries; e = case_entry { e :: l }
 
 case_entry:
-  | PIPE; v = UPPER_IDENT; p = LOWER_IDENT; ARROW; e = expr_body { (v, p, e) }
+  | PIPE; lbl = UPPER_IDENT; var = LOWER_IDENT; ARROW; e = expr_body { (Ast.Expr.Tag_pat (lbl, var), e) }
+  | PIPE; var = LOWER_IDENT; ARROW; e = expr_body { (Ast.Expr.Var_pat var, e) }
 
 rev_comma_sequence(item):
   | { [] }
