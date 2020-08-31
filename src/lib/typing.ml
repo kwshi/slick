@@ -79,6 +79,8 @@ let solve_row_evar ev r =
   in
   if found then ctx'
   else (
+    print_debug "solve_row_evar: context dump";
+    print_tp @@ Record r;
     print_ctx {Ctx.empty with context= ctx} ;
     failwith @@ "solve_row_evar not found (" ^ Int.to_string ev ^ ")" )
 
@@ -262,6 +264,7 @@ let make_recursive ev (tp : Type.t) : Type.t =
 (* quantifies over all the given evars *)
 
 let quantify (evars : int list) (tp : Type.t) : Type.t =
+  (* print_debug @@ List.to_string Int.to_string evars; *)
   let quantify_single ev tp' =
     let tv = "α" ^ Int.to_string ev in
     Type.Forall (tv, substitute_evar ev ~replace_with:(Type.TVar tv) tp')
@@ -269,6 +272,7 @@ let quantify (evars : int list) (tp : Type.t) : Type.t =
   List.fold_right quantify_single evars tp
 
 let quantify_row (row_evars : int list) (tp : Type.t) : Type.t =
+  (* print_debug @@ List.to_string Int.to_string row_evars; *)
   let quantify_single ev tp' =
     let tv = "ρ" ^ Int.to_string ev in
     Type.ForallRow
@@ -305,7 +309,7 @@ let rec infer_top ctx annotated =
    * print_ctx new_ctx; *)
   let resolved = Ctx.apply_ctx_expr new_ctx inferred in
   (* print_tp resolved.tp; *)
-  ({resolved with tp= quantify (Ctx.free_evars new_ctx) resolved.tp}, new_ctx)
+  ({resolved with tp= quantify_all_free_evars new_ctx resolved.tp}, new_ctx)
 
 and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
   (* print_string "infer:\n";
@@ -346,9 +350,6 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
           { Ast.Expr.expr= Ast.Expr.Function (var, e_checked)
           ; Ast.Expr.tp= Type.Function (arg_ev_tp, ret_ev_tp) }
       in
-      (* print_string "infer function: ";
-       * print_tp fun_expr.tp;
-       * print_ctx new_ctx; *)
       let quantified_fun_expr =
         { fun_expr with
           tp=
@@ -356,11 +357,18 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
               (Ctx.get_ctx_after marker new_ctx)
               fun_expr.tp }
       in
+      (* print_debug "infer function: ";
+       * print_tp fun_expr.tp;
+       * print_ctx new_ctx;
+       * print_tp quantified_fun_expr.tp; *)
       (quantified_fun_expr, Ctx.drop_ctx_from marker new_ctx)
   (* ->E *)
   | Ast.Expr.Application (e1, e2) ->
       let e1_inferred, new_ctx = infer ctx e1 in
       let e1_inferred' = Ctx.apply_ctx_expr new_ctx e1_inferred in
+      (* print_debug "infer app: ";
+       * print_tp e1_inferred'.tp;
+       * print_ctx new_ctx; *)
       let e2_inferred, output_tp, new_ctx' =
         infer_app new_ctx e1_inferred'.tp e2
       in
@@ -676,6 +684,10 @@ and subsumes ctx tp1 tp2 =
 
 
 and subsumes_row ctx (r1, tail1) (r2, tail2) =
+    (* print_debug "subsumes_row: (rows are wrapped in records to print)";
+     * print_tp (Type.Record (r1, tail1));
+     * print_tp (Type.Record (r2, tail2));
+     * print_ctx ctx; *)
     let map1 = RowMap.of_list r1 in
     let map2 = RowMap.of_list r2 in
     (* Check that the matching labels' types subsume each other *)
@@ -686,8 +698,18 @@ and subsumes_row ctx (r1, tail1) (r2, tail2) =
     in
     let missingFrom1 = RowMap.to_list @@ row_map_difference map2 map1 in
     let missingFrom2 = RowMap.to_list @@ row_map_difference map1 map2 in
+    let apply_row  = List.map (Pair.map2 @@ Ctx.apply_ctx ctx') in
+    match (Ctx.apply_ctx_tail ctx' tail1, Ctx.apply_ctx_tail ctx' tail2) with
+    (* If we recursively solve a row tail, we need to reevaluate the subsumption relationship on the solved row*)
+    | `Solved (r1',t1'), `Solved (r2',t2') ->
+      subsumes_row ctx' (apply_row @@ r1' @ r1, t1') (apply_row @@ r2' @ r2, t2')
+    | `Solved (r1', t1'), `Unsolved _ ->
+      subsumes_row ctx' (apply_row @@ r1' @ r1, t1') (apply_row r2, tail2)
+    | `Unsolved _, `Solved (r2', t2') ->
+      subsumes_row ctx' (apply_row r1, tail1) (apply_row @@ r2' @ r2, t2')
+    | `Unsolved _, `Unsolved _ ->
     (* Deal with the parts that are missing *)
-    row_tail_subsumes ctx' tail1 missingFrom1 tail2 missingFrom2
+    row_tail_subsumes ctx' tail1 (apply_row missingFrom1) tail2 (apply_row missingFrom2)
 
 and instantiateL ctx ev tp =
   (* print_string @@ "instantiateL: " ^ Int.to_string ev ^ "\n";
@@ -934,14 +956,17 @@ and row_tail_subsumes_ev ctx ev1 missingFrom1 ev2 missingFrom2 =
   in
   let ctx8 =
     List.fold_right2
-      (fun (_, tp) ev ctx -> instantiateL ctx ev tp)
-      missingFrom1 fresh_evs1 ctx7
+      (fun (_, tp) ev ctx -> instantiateL ctx ev (Ctx.apply_ctx ctx tp))
+ missingFrom1 fresh_evs1 ctx7
   in
   let ctx9 =
     List.fold_right2
-      (fun (_, tp) ev ctx -> instantiateR ctx tp ev)
+      (fun (_, tp) ev ctx -> instantiateR ctx (Ctx.apply_ctx ctx tp) ev)
       missingFrom2 fresh_evs2 ctx8
   in
+  (* print_debug "row_tail_subsumes_ev tails: ";
+   * print_debug @@ Int.to_string fresh_rev1;
+   * print_debug @@ Int.to_string fresh_rev2; *)
   row_tail_reach ctx9 fresh_rev1 fresh_rev2
 
 and row_tail_reach ctx ev1 ev2 =
