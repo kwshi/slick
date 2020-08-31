@@ -44,16 +44,25 @@ function_type:
 
 *)
 
+(* TODO reverse *)
+
 expr:
-  | v = LOWER_IDENT; WALRUS; e = expr; SEMICOLON; b = expr { Expr.make_assign v e b }
+  | v = LOWER_IDENT; WALRUS; e = expr_body { Expr.make_assign v e }
   | f = function_expr { f }
-  | CASE; e = expr_body; l = rev_case_entries { Expr.make_case e (List.rev l) }
+  | CASE; e = expr_body; COLON; l = rev_case_entries { Expr.make_case e (List.rev l) }
   | e = expr_body { e }
 
 expr_body:
-  | e = expr_atom { e }
-  | a = function_app { a }
+  | e = expr_line { e }
+  | e1 = expr_line; SEMICOLON; e2 = expr_body { Expr.make_sequence e1 e2 }
+
+expr_line:
+  | e = expr_apps { e }
   | s = UPPER_IDENT; e = expr_atom { Expr.make_variant s e }
+
+expr_apps:
+  | f = expr_apps; e = expr_atom { Expr.make_application f e }
+  | e = expr_atom { e }
 
 expr_atom:
   | LPAREN; e = expr; RPAREN { e }
@@ -74,7 +83,7 @@ rev_comma_sequence(item):
   | { [] }
   | i = item { [i] }
   | items = rev_comma_sequence(item); COMMA; i = item { i :: items }
-
+ 
 comma_sequence(item):
   | rev_items = rev_comma_sequence(item) { List.rev rev_items }
 
@@ -98,7 +107,4 @@ record_expr_entry:
 
 function_expr:
   | BACKSLASH; v = LOWER_IDENT; ARROW; e = expr { Expr.make_function v e }
-
-function_app:
-  | f = expr_atom; e = expr_atom { Expr.make_application f e }
 

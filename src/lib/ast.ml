@@ -26,7 +26,7 @@ module Expr = struct
   type literal = Int of Z.t
 
   type 't raw_expr =
-    | Assign of var_name * 't * 't
+    | Assign of var_name * 't
     | Function of (var_name * 't)
     | Application of ('t * 't)
     | Record of 't record
@@ -36,6 +36,7 @@ module Expr = struct
     | Var of var_name
     | Literal of literal
     | Case of ('t * (string * string * 't) list)
+    | Sequence of 't * 't
 
   and 'annotated_expr record = (label * 'annotated_expr) list
 
@@ -64,10 +65,12 @@ module Expr = struct
 
     let make_var v = make @@ Var v
 
-    let make_assign v e b = make @@ Assign (v, e, b)
+    let make_assign v e = make @@ Assign (v, e)
 
     let make_literal l = make @@ Literal l
 
     let make_case e cs = make @@ Case (e, cs)
+
+    let make_sequence e1 e2 = make @@ Sequence (e1, e2)
   end
 end
