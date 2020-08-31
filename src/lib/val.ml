@@ -2,17 +2,23 @@ open Containers
 open Fun
 
 module Primitive = struct
-  type t = Int of Z.t
+  type t =
+    | Int of Z.t
+    | String of string
 
   let pp ppf p =
     let open Fmt in
-    (match p with Int n -> const Z.pp_print n) ppf ()
+    (match p with
+     | Int n -> const Z.pp_print n
+     | String s -> const String.pp s) ppf ()
 
   module Get = struct
-    let int = function Int n -> Some n
+    let int = function Int n -> Some n | _ -> None
+    let str = function String s -> Some s | _ -> None
 
     module Exn = struct
       let int = Option.get_exn % int
+      let str = Option.get_exn % str
     end
   end
 end

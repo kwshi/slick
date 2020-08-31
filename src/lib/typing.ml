@@ -408,7 +408,9 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
       , ext_ctx )
   | Ast.Expr.Literal l ->
       ( { expr= Ast.Expr.Literal l
-        ; tp= Primitive (match l with Ast.Expr.Int _ -> Int) }
+        ; tp= Primitive (match l with
+                        | Ast.Expr.Int _ -> Int
+                        | Ast.Expr.String _ -> String) }
       , ctx )
   | Ast.Expr.Sequence (e1, e2) ->
     let e1_inferred, new_ctx = infer ctx e1 in

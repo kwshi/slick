@@ -8,7 +8,9 @@ type label = string
 
 let pp_label = Format.string
 
-type primitive = Int
+type primitive =
+  | String
+  | Int
 
 type tail = Tail_evar of int | Tail_tvar of var_name
 
@@ -59,7 +61,11 @@ let rec pp ppf t =
   | Mu (v, e) ->
       any "µ@ " ++ const string v ++ any ".@ " ++ const pp e
   | Primitive p -> (
-    match p with Int -> any "Int" ) )
+    match p with
+    | Int    -> any "Int"
+    | String -> any "String"
+    )
+  )
     ppf ()
 
 and pp_row ppf (es, tl) =

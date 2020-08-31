@@ -9,7 +9,27 @@ let next_line lb =
     pos_bol = lb.lex_curr_pos;
     pos_lnum = pos.pos_lnum + 1;
   }
+
+(* let convert_string str =
+ *   let open Seq in
+ *   let rec go x = match x () with
+ *   | Cons ('"', Nil) -> Nil
+ *   | Cons ('\\', rest) ->
+ *     (match rest () with
+ *     | Cons ('"', rest) -> Cons ('"', go rest)
+ *     | Cons ('\\', rest) -> Cons ('\\', go rest)
+ *     | Cons ('n', rest) -> Cons ('\n', go rest)
+ *     | Cons ('r', rest) -> Cons ('\r', go rest)
+ *     | Cons ('t', rest) -> Cons ('\t', go rest)
+ *     | _ -> failwith "lexing error: malformed string literal."
+ *     )
+ *   | Cons (c, rest) -> Cons (c, go rest)
+ *   | Nil -> failwith "lexing error: string not terminated by quotation (this shouldn't happen)."
+ *   in match List.of_seq @@ String.to_seq str with
+ *      | Cons ('"', rest) -> String.of_seq (go rest)
+ *      | _ -> failwith "lexing error: string not beginning with quotation (this shouldn't happen)." *)
 }
+
 
 let lower_ident = ['a'-'z'] ['a'-'z' 'A'-'Z' '0'-'9' '_']* | '_'
 
@@ -20,6 +40,10 @@ let nonnegative_digits = '0' | ['1'-'9'] ['0'-'9']*
 let newline = "\r" | "\n" | "\r\n"
 
 let white = [' ' '\t']+
+
+let escaped_string = "\\\"" | "\\\\" | "\\n" | "\\r" | "\\t"
+
+let string = ['"'] (escaped_string | [^'\\' '"' '\n'])* ['"']
 
 rule read =
   parse
@@ -40,6 +64,7 @@ rule read =
   | "," { COMMA }
   | "." { DOT }
   | "-" { HYPHEN }
+  | string { STRING (Lexing.lexeme lexbuf )}
   | nonnegative_digits { INT (Lexing.lexeme lexbuf |> Z.of_string) } 
   | lower_ident { LOWER_IDENT (Lexing.lexeme lexbuf) }
   | upper_ident { UPPER_IDENT (Lexing.lexeme lexbuf) }

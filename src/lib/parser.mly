@@ -10,6 +10,7 @@ module Slick = struct end
 %token <string> LOWER_IDENT
 %token <string> UPPER_IDENT
 %token <Z.t> INT
+%token <string> STRING
 %token BACKSLASH
 %token CASE
 %token HYPHEN
@@ -70,6 +71,7 @@ expr_atom:
   | v = LOWER_IDENT { Expr.make_var v }
   | r = expr_atom; DOT; l = LOWER_IDENT { Expr.make_projection r l }
   | n = INT { Expr.(make_literal (Int n)) }
+  | s = STRING { Expr.(make_literal (String s))}
   | LBRACE; e = expr_body; PIPE; l = comma_sequence(record_expr_entry) RBRACE { Expr.make_extensions e l }
 
 rev_case_entries:

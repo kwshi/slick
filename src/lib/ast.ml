@@ -23,7 +23,9 @@ end
               *)
 
 module Expr = struct
-  type literal = Int of Z.t
+  type literal =
+    | String of string
+    | Int of Z.t
 
   type 't raw_expr =
     | Assign of var_name * 't

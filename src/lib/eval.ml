@@ -42,7 +42,9 @@ let rec evaluate (sc : Val.t Scope.t) expr : Val.t * Val.t Scope.t =
   | Var v ->
       Scope.find v sc, sc
   | Literal l ->
-      Primitive (match l with Int n -> Int n), sc
+      Primitive (match l with
+                | Int n -> Int n
+                | String s -> String s), sc
   | Case (e, cs) ->
     (match evaluate sc e with
     | Variant (v, e), _ ->
