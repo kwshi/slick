@@ -6,11 +6,32 @@ module Primitive = struct
     | Int of Z.t
     | String of string
 
+  let pp_string_esc =
+    let open Fmt in
+    let dim = styled `Faint % styled (`Fg `Cyan) in
+    let esc = styled (`Fg `Yellow) % any in
+    (fun ppf s ->
+       dim (any "“") ppf ();
+       String.iter
+         (fun c ->
+            ( match c with
+              | '\n' -> esc "\\n"
+              | '\t' -> esc "\\t"
+              | '\r' -> esc "\\r"
+              | '"' -> esc "\\\""
+              | '\\' -> esc "\\\\"
+              | _ -> const char c
+            ) ppf ()
+         )
+         s
+       ; dim (any "”") ppf ()
+    )
+
   let pp ppf p =
     let open Fmt in
     (match p with
      | Int n -> const Z.pp_print n
-     | String s -> const String.pp s) ppf ()
+     | String s -> const pp_string_esc s) ppf ()
 
   module Get = struct
     let int = function Int n -> Some n | _ -> None

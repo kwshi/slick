@@ -41,10 +41,6 @@ let newline = "\r" | "\n" | "\r\n"
 
 let white = [' ' '\t']+
 
-let escaped_string = "\\\"" | "\\\\" | "\\n" | "\\r" | "\\t"
-
-let string = ['"'] (escaped_string | [^'\\' '"' '\n'])* ['"']
-
 rule read =
   parse
   | white { read lexbuf }
@@ -61,16 +57,25 @@ rule read =
   | ";" { SEMICOLON }
   | "=" { EQUALS }
   | ":=" { WALRUS }
-  | "," { COMMA }
-  | "." { DOT }
-  | "-" { MINUS }
-  | "+" { PLUS }
-  | "*" { ASTERISK }
-  | "/" { SLASH }
-  | string { STRING (Lexing.lexeme lexbuf )}
+  | ',' { COMMA }
+  | '.' { DOT }
+  | '-' { MINUS }
+  | '+' { PLUS }
+  | '*' { ASTERISK }
+  | '/' { SLASH }
+  | '"' { STRING (read_string (Buffer.create 16) lexbuf) }
   | nonnegative_digits { INT (Lexing.lexeme lexbuf |> Z.of_string) } 
   | lower_ident { LOWER_IDENT (Lexing.lexeme lexbuf) }
   | upper_ident { UPPER_IDENT (Lexing.lexeme lexbuf) }
   | _ { raise (Ast.SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) } 
   | eof { EOF }
 
+and read_string buf =
+  parse
+  | "\\n" { Buffer.add_char buf '\n'; read_string buf lexbuf }
+  | "\\t" { Buffer.add_char buf '\t'; read_string buf lexbuf }
+  | "\\r" { Buffer.add_char buf '\r'; read_string buf lexbuf }
+  | "\\\\" { Buffer.add_char buf '\\'; read_string buf lexbuf }
+  | "\\\"" { Buffer.add_char buf '"'; read_string buf lexbuf }
+  | [^ '"' '\\']+ { Buffer.add_string buf (Lexing.lexeme lexbuf); read_string buf lexbuf }
+  | '"' { Buffer.contents buf }
