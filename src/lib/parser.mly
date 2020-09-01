@@ -179,6 +179,7 @@ record_pattern:
   | l = brace_list(record_pattern_entry) { Ast.Pattern.Record l }
 
 record_pattern_entry:
+  | k = LOWER_IDENT { (k, Ast.Pattern.Var k) }
   | k = LOWER_IDENT; EQUALS; p = pattern; { (k, p) }
   (* No need for parens inside of a record *)
   | k = LOWER_IDENT; EQUALS; p = variant_pattern; { (k, p) }
