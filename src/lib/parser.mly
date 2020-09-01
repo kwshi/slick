@@ -68,7 +68,7 @@ rev_module_entries:
   | m = rev_module_entries; e = module_entry { e :: m }
 
 module_entry:
-  | DEF; s = LOWER_IDENT; args = def_args; WALRUS; e = expr { (s, Expr.make_function_with_args args e) }
+  | DEF; s = LOWER_IDENT; args = def_args; COLON; e = expr { (s, Expr.make_function_with_args args e) }
 
 def_args:
   | { [] }
