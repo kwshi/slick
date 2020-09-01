@@ -1,11 +1,23 @@
-# currently, using the `fix` combinator is our mechanism
-# for implementing recursive functions (btw, `fix` type-checks!
-# try typing `fix` in the REPL).  Eventually, we aim to
-# implement recursion via more sophisticated ways.
+# Currently, using the `fix` combinator is our mechanism for implementing
+# recursive functions (btw, `fix` type-checks!  try typing `fix` in the REPL).
+# Eventually, we aim to implement recursion via more sophisticated ways.
+
+# To use `fix` to implement recursive functions, define your function as `fix
+# (\f -> \{args} -> expr)`; within `expr`, use `f` to refer to the function
+# itself.  See the `factorial` function for an example.
+
 def fix f:
   (\x -> f (\v -> x x v)) (\x -> f (\v -> x x v))
 
+def factorial:
+  fix (\fact -> \n ->
+    case n:
+    | 0 -> 1
+    | _ -> n * fact (n-1)
+  )
+
 # project euler solution #1
+
 def euler1:
   fix (\f -> \{below=n} ->
     case n:
@@ -22,6 +34,11 @@ def euler1:
       )
   )
 
+# boolean functions--we don't have an `if else` construct yet, but
+# the `case condition: | True -> ... | False -> ...` construction
+# is equivalent, and we plan to add an `if else` construction that
+# basically desugars to the `case` construction.
+
 def bool_not a:
   case a:
   | True -> False
@@ -30,6 +47,7 @@ def bool_not a:
 def bool_xor {a, b}:
   a && bool_not b || b && bool_not a
 
+# A non-trivial use of `fix` for recursion.  
 def fibonacci:
   go := fix (\go -> \{a, b} -> \n ->
     case n:
@@ -38,13 +56,6 @@ def fibonacci:
   );
   go {a=0, b=1}
    
-def factorial:
-  fix (\fact -> \n ->
-    case n:
-    | 0 -> 1
-    | _ -> n * fact (n-1)
-  )
-
 def day_to_int d:
   case d:
   | Sunday -> 0
