@@ -31,11 +31,11 @@ beginners.
 Slick tries to combine the best of both worlds: a concise, _dynamic-feeling_,
 versatile coding style combined with the safety of static types.  We achieve
 this goal using two concepts from functional-programming research: _type
-inference_ and _row polymorphism_.  (If those phrases don't mean anything to
-you, don't worry!  You don't need to understand them to use its features.)
-These tools allow Slick's syntax to be nearly as simple as vanilla
-Python--requiring no type-annotations whatsoever--while still providing a
-mechanism for type-checking and type-safety.
+inference_ and _row polymorphism_/_structural typing_.  (If those phrases don't
+mean anything to you, don't worry!  You don't need to understand them to use its
+features.)  These tools allow Slick to be virtually as simple, expressive, and
+flexible as vanilla Python--requiring no type-annotations whatsoever--while
+still providing a mechanism for type-checking and type-safety.
 
 The gist of how it works is this: when you write down an expression like `a + b`,
 we can tell without _evaluating_ the code that `a` and `b` must be numbers--
