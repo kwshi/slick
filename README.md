@@ -12,9 +12,7 @@ to show you what Slick code looks like.  Try running the following:
 - From inside the REPL: `:load "demos/demo.sl"`, then try running `fibonacci`,
   `fibonacci 8`, `factorial`, `factorial 7`, etc.
 
----
-
-## In a nutshell
+## Slick in a nutshell
 
 Slick is a functional programming language developed initially for repl.it's
 language jam.
@@ -76,7 +74,7 @@ Slick to feel as versatile as Python, while still providing the static-typing
 guarantees that languages like Haskell, OCaml, and Rust provide.  Moreover, it
 allows Slick to not only be a beginner _friendly_ language but also an excellent
 _education_ language: it allows programming newcomers to write simple,
-straightforward code (a la Python) while introducing them to the concepts of
+straightforward code (a la Python) while still introducing them to the concepts of
 type-safety, _without requiring them to understand types in the first place_.
 
 Here are some more expressions you can try running in the REPL!  See if you can
@@ -108,8 +106,6 @@ For more details, read the Slick language reference
 For type-savvy enthusiasts and theorists, read about Slick's type system
 [here](/docs/typing.pdf). This document is mostly up-to-date, but there are some
 recent changes like patterns which aren't in it.
-
----
 
 ## How to build and run locally
 
@@ -171,3 +167,65 @@ git clone https://github.com/kwshi/slick
 - `dune build src/exe` to build the Slick REPL executable
 
 - `dune exec slick` to build and run the Slick REPL
+
+---
+
+## FAQs
+
+### Help! I don't understand this error message!
+
+Yeah... sorry about that.  We were so busy implementing other cool language
+features we haven't gotten around to making the error messages very informative
+yet.  For now, here's a rule-of-thumb to decipher what they mean, sort of:
+
+- `Exception Not_found`: something went wrong during _runtime_, or _evaluation_.
+  This kind of error should rarely occur, unless we did our type-checking wrong
+  (which we may have--this project is very much a work-in-progress).
+
+- `subsumes: unimplemented types`: a type error.  Most likely you are trying to
+  apply a function to an argument of an incompatible type, e.g. `"hi" + 3` (`+`
+  only acts on integers and cannot be applied to the string `"hi"`).
+
+- `lookup_var: ...`: Most likely you are using a variable that hasn't been
+  defined in a particular scope, e.g., in `\x -> y`, `y` has not been defined.
+
+- `syntax error`: some sort of parsing/lexing-related error.  Try adding
+  parentheses around certain expressions--in particular, around the
+  right-hand-side of function expressions and `case` branches, e.g. (`\x -> ( ... )`,
+  `| <pattern> -> ( ... )`).
+
+We _will_, we promise, get to improving the error messages soon--and we assure
+you, they will be some of the best you've ever seen.
+
+### Why is Slick so slow?
+
+Because we haven't gotten around to optimizing it yet, at all.  Currently, Slick
+is an interpreted language, and its type-checker and evaluator/runtime are
+largely a proof-of-concept, implemented in considerably inefficient ways.
+Eventually, we will get around to rewriting those parts of Slick to be more
+efficient, and we also plan to look into adding a _compilation_ target (most
+likely via LLVM) to Slick.
+
+### What do you mean by "static" safety?  Aren't the errors still occurring when I try to _run_ the code?
+
+
+
+---
+
+## Acknowledgements
+
+- We take heavy inspiration from well-established functional programming
+  languages like Haskell and OCaml.  We also take a ton of inspiration from
+  Python for feature ideas and our syntax design.
+
+- We stumbled on the idea of row polymorphism (and their benefits &
+  implementation) from languages like Elm (polymorphic records) and OCaml
+  (polymorphic variants).
+
+- Much of the language's motivation and design philosophy was inspired by work
+  during @kwshi's internship at Bloomberg.  (The code and implementation of
+  Slick are completely original, independent of the code written at Bloomberg,
+  but many of the ideas take after the Bloomberg "in spirit".)
+
+- This cool bidirectional-type-inference paper:
+  <https://www.cl.cam.ac.uk/~nk480/bidir.pdf>.
