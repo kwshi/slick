@@ -10,25 +10,39 @@ let prelude =
   , {|\f -> (\x -> f (\v -> x x v)) (\x -> f (\v -> x x v))|}
   ; "list"
     , {|
+
+      1
+#{ id = 
+#    fix (\id -> \l -> 
+#      case l
+#      | Nil -> l
+#      | Cons {hd, tl} -> l
+#    )
+#}
+
+|}
+      (*
+  ; "list"
+    , {|
       {
       
 id = fix (\id -> \l ->
   case l
   | Nil -> l
   | Cons{hd, tl} -> {_=id tl, l}.l
-),
+)
  
-map = fix (\map -> \f -> \l ->
-  x := (case l
-  | Nil -> Nil
-  | Cons{hd, tl} -> Cons{hd=f hd, tl=map f tl}
-      ); x
-      )
-#case x
-#
-#| Nil -> x
-#| Cons _ -> x
-}
+#map = fix (\map -> \f -> \l ->
+#  x := (case l
+#  | Nil -> Nil
+#  | Cons{hd, tl} -> Cons{hd=f hd, tl=map f tl}
+#      ); x
+#      )
+##case x
+##
+##| Nil -> x
+##| Cons _ -> x
+#}
 
 |}
   (* dirty type hacks *)
@@ -40,6 +54,7 @@ map = fix (\map -> \f -> \l ->
     , {|\a -> (\x -> case x | Some _ -> x | None -> x) (Some a)|}
   ; "none"
     , {|(\x -> case x | Some _ -> x | None -> x) None|}
+         *)
   ] 
   |> List.map (Pair.map2 parse_string)
   |> Module.eval

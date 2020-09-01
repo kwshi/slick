@@ -41,10 +41,6 @@ module Expr = struct
     | String of string
     | Int of Z.t
 
-  type case_pattern =
-    | Tag_pat of (label * Pattern.t)
-    | Var_pat of var_name
-
   type 't raw_expr =
     | Bop of string * 't * 't
     | Uop of string * 't
@@ -57,7 +53,7 @@ module Expr = struct
     | Variant of (string * 't)
     | Var of var_name
     | Literal of literal
-    | Case of ('t * (case_pattern * 't) list)
+    | Case of ('t * (Pattern.t * 't) list)
   and 'annotated_expr record = (label * 'annotated_expr) list
 
   and 'tp t = {tp: 'tp; expr: 'tp t raw_expr}
