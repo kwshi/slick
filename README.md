@@ -1,11 +1,12 @@
 # slick
 
-## How to run in repl.it:
+## How to run on repl.it:
 
-To run the Slick REPL, use the "Run" button, or type `./slick` in the terminal
-panel.  To run a script, run `./slick <file>`.  To load a module from _within_
-the REPL, use the command `:load "<file>"`.  We wrote a few demo scripts/modules
-to show you what Slick code looks like.  Try running the following:
+To run the [Slick REPL on repl.it](https://repl.it/@SlickLang/slick), use the
+"Run" button, or type `./slick` in the terminal panel.  To run a script, run
+`./slick <file>`.  To load a module from _within_ the REPL, use the command
+`:load "<file>"`.  We wrote a few demo scripts/modules to show you what Slick
+code looks like.  Try running the following:
 
 - From the Bash terminal: `./slick demos/hello.sl`
 
