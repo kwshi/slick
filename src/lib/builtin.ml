@@ -39,6 +39,7 @@ let vals =
   ; int_bop "-" Z.sub
   ; int_bop "*" Z.mul
   ; int_bop "/" Z.div
+  ; int_bop "%" Z.(mod)
   ; int_comp "<=" Z.leq
   ; int_comp ">=" Z.geq
   ; int_comp "<" Z.lt

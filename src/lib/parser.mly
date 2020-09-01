@@ -16,6 +16,7 @@ module Slick = struct end
 %token DEF
 %token MINUS
 %token PLUS
+%token MOD
 %token PLUS_PLUS
 %token ASTERISK
 %token LPAREN
@@ -36,6 +37,9 @@ module Slick = struct end
 %token LT
 %token EQ
 %token NE
+%token AND
+%token OR
+%token POW
 %token WALRUS
 %token EOF
 
@@ -118,8 +122,13 @@ expr_op_add:
   | e = expr_op_mul { e }
 
 expr_op_mul:
-  | a = expr_op_mul; ASTERISK; b = expr_op_neg { Expr.make_bop "*" a b }
-  | a = expr_op_mul; SLASH; b = expr_op_neg { Expr.make_bop "/" a b }
+  | a = expr_op_mul; ASTERISK; b = expr_op_pow { Expr.make_bop "*" a b }
+  | a = expr_op_mul; SLASH; b = expr_op_pow { Expr.make_bop "/" a b }
+  | a = expr_op_mul; MOD; b = expr_op_pow { Expr.make_bop "%" a b }
+  | e = expr_op_pow { e }
+
+expr_op_pow:
+  | a = expr_op_neg; POW; b = expr_op_pow { Expr.make_bop "**" a b }
   | e = expr_op_neg { e }
 
 expr_op_neg:
