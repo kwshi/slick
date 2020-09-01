@@ -1,5 +1,19 @@
 # slick
 
+## How to run in repl.it:
+
+To run the Slick REPL, use the "Run" button, or type `./slick` in the terminal
+panel.  To run a script, run `./slick <file>`.  To load a module from _within_
+the REPL, use the command `:load "<file>"`.  We wrote a few demo scripts/modules
+to show you what Slick code looks like.  Try running the following:
+
+- From the Bash terminal: `./slick demos/hello.sl`
+
+- From inside the REPL: `:load "demos/demo.sl"`, then try running `fibonacci`,
+  `fibonacci 8`, `factorial`, `factorial 7`, etc.
+
+---
+
 ## In a nutshell
 
 Slick is a functional programming language developed initially for repl.it's
@@ -86,6 +100,8 @@ guess what they do, and guess what their types are before you run them...
 
 To learn more, check out our 10-minute tutorial [here](/docs/tutorial.md).
 
+Read more about Slick [here](/docs/about.md).
+
 For more details, read the Slick language reference
 [here](/docs/language-features.md).
 
@@ -93,23 +109,6 @@ For type-savvy enthusiasts and theorists, read about Slick's type system
 [here](/docs/typing.pdf). This document is mostly up-to-date, but there are some
 recent changes like patterns which aren't in it.
 
----
-
-
-
-
-
-Read more about Slick [here](/docs/about.md).
-
-<<<<<<< HEAD
-Read about Slick's type system [here](/docs/typing.pdf) (note: this document is
-partially out of date, especially for some parts of the system like recursive
-types).
-
-
----
-
-## How to run (in repl.it)
 
 
 ---
