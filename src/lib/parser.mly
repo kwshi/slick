@@ -151,9 +151,9 @@ rev_case_entries:
   | l = rev_case_entries; e = case_entry { e :: l }
 
 case_entry:
-  | PIPE; lbl = UPPER_IDENT; var = LOWER_IDENT; ARROW; e = expr_body { (Ast.Expr.Tag_pat (lbl, var), e) }
-  | PIPE; lbl = UPPER_IDENT ARROW; e = expr_body { (Ast.Expr.Tag_pat (lbl, "_"), e) }
-  | PIPE; var = LOWER_IDENT; ARROW; e = expr_body { (Ast.Expr.Var_pat var, e) }
+  | PIPE; lbl = UPPER_IDENT; p = pattern; ARROW; e = expr_body { (Ast.Expr.Tag_pat (lbl, p), e) }
+  | PIPE; lbl = UPPER_IDEN; ARROW; e = expr_body { (Ast.Expr.Tag_pat (lbl, Ast.Pattern.Var "_"), e) }
+  | PIPE; v = LOWER_IDENT; ARROW; e = expr_body { (Ast.Expr.Var_pat v, e) }
 
 rev_comma_sequence(item):
   | { [] }

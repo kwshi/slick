@@ -46,9 +46,11 @@ let rec evaluate (sc : Val.t Scope.t) expr =
        let sc', e' =
          List.find_map
            (function
-             | (Ast.Expr.Tag_pat (tag', var), e') when String.equal tag tag' ->
-               Some (Scope.add var e sc, e')
-                 
+             | (Ast.Expr.Tag_pat (tag', pat), e') when String.equal tag tag' ->
+               (match Ast.match_pat (pat, e) with
+               | Some pat_bindings -> Some (Scope.add_list sc pat_bindings, e')
+               | None -> None
+               )
              | (Var_pat var, e') ->
                Some (Scope.add var (Val.Variant (tag, e)) sc, e')
                  

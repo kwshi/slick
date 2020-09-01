@@ -42,7 +42,7 @@ module Expr = struct
     | Int of Z.t
 
   type case_pattern =
-    | Tag_pat of (label * var_name)
+    | Tag_pat of (label * Pattern.t)
     | Var_pat of var_name
 
   type 't raw_expr =

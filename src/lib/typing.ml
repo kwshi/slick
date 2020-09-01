@@ -482,17 +482,19 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
       let ctx7, cs_inferred  = List.fold_map
         (fun ctx ->
            function
-           | (Ast.Expr.Tag_pat (lbl, var), case_inner) ->
+           | (Ast.Expr.Tag_pat (lbl, pat), case_inner) ->
              (* This lookup should never fail *)
              (* Need to apply context in case any solutions happened in previous parts *)
              let var_tp = Ctx.apply_ctx ctx @@ RowMap.find lbl rm in
              (* print_string @@ var ^ ": ";
                * print_tp var_tp; *)
              let ret_tp = Ctx.apply_ctx ctx ret_ev_tp in
-             let ctx' = Ctx.append_ctx [Ctx.Var (var, var_tp)] ctx in
-             let case_inner_checked, new_ctx = check ctx' case_inner ret_tp in
+             let marker, ctx' = Ctx.fresh_marker ctx in
+             let marker_ctx = Ctx.append_ctx [marker] ctx' in
+             let ctx'' = check_pat marker_ctx pat var_tp in
+             let case_inner_checked, new_ctx = check ctx'' case_inner ret_tp in
              (* print_tp @@ Ctx.apply_ctx new_ctx var_tp; *)
-             (Ctx.drop_ctx_from (Ctx.Var (var, var_tp)) new_ctx, (Ast.Expr.Tag_pat (lbl, var), case_inner_checked))
+             (Ctx.drop_ctx_from marker new_ctx, (Ast.Expr.Tag_pat (lbl, pat), case_inner_checked))
            | (Ast.Expr.Var_pat var, case_inner) ->
              let variant_tp = Ctx.apply_ctx ctx input_variant_tp in
              let ret_tp = Ctx.apply_ctx ctx ret_ev_tp in
