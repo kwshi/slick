@@ -82,7 +82,7 @@ repl:
   | s = LOWER_IDENT; WALRUS; e = expr; EOF { Ast.Repl.Def (s, e) }
 
 pattern:
-  | v = UPPER_IDENT; { Ast.Pattern.Variant (v, Ast.Pattern.Record []) }
+  | v = UPPER_IDENT { Ast.Pattern.Variant (v, Ast.Pattern.Record []) }
   | LPAREN; p = variant_pattern; RPAREN { p }
   | p = record_pattern { p }
   | p = pattern_atom { p }
@@ -154,7 +154,7 @@ rev_case_entries:
 
 case_entry:
   | PIPE; lbl = UPPER_IDENT; p = pattern; ARROW; e = expr_body { (Ast.Expr.Tag_pat (lbl, p), e) }
-  | PIPE; lbl = UPPER_IDEN; ARROW; e = expr_body { (Ast.Expr.Tag_pat (lbl, Ast.Pattern.Var "_"), e) }
+  | PIPE; lbl = UPPER_IDENT; ARROW; e = expr_body { (Ast.Expr.Tag_pat (lbl, Ast.Pattern.Record []), e) }
   | PIPE; v = LOWER_IDENT; ARROW; e = expr_body { (Ast.Expr.Var_pat v, e) }
 
 rev_comma_sequence(item):
@@ -176,6 +176,7 @@ record_expr:
 
 record_expr_entry:
   | k = LOWER_IDENT; EQUALS; v = expr { (k, v) }
+  | k = LOWER_IDENT { (k, Expr.make_var k) }
 
 record_pattern:
   | l = brace_list(record_pattern_entry) { Ast.Pattern.Record l }

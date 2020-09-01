@@ -11,21 +11,35 @@ let prelude =
   ; "list"
     , {|
       {
-nil = Nil,
-cons = \{a, b} -> Cons{hd=a, tl=b}
-,
+      
+id = fix (\id -> \l ->
+  case l
+  | Nil -> l
+  | Cons{hd, tl} -> {_=id tl, l}.l
+),
  
 map = fix (\map -> \f -> \l ->
-  case l
+  x := (case l
   | Nil -> Nil
-  | Cons {} -> Cons
+  | Cons{hd, tl} -> Cons{hd=f hd, tl=map f tl}
+      ); x
       )
-      
-
-    
-
+#case x
+#
+#| Nil -> x
+#| Cons _ -> x
 }
+
 |}
+  (* dirty type hacks *)
+  ; "true"
+, {|(\x -> case x | True -> x | False -> x) True |}
+  ; "false"
+  , {|(\x -> case x | True -> x | False -> x) False|}
+  ; "some"
+    , {|\a -> (\x -> case x | Some _ -> x | None -> x) (Some a)|}
+  ; "none"
+    , {|(\x -> case x | Some _ -> x | None -> x) None|}
   ] 
   |> List.map (Pair.map2 parse_string)
   |> Module.eval
