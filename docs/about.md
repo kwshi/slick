@@ -121,11 +121,26 @@ Putting the above together, Slick lets you pattern match on most variables.
 def greet_person person: 
   case person 
   | (Adult {age,job,name="Kye"}) -> "burger time"
-  | (Adult {age,job=(Programmer _)} -> "hello, world")
+  | (Adult {age,job=(Programmer _),name}) -> "hello, world"
   | (Adult _) -> "hello, adult"
   | (Child _) -> "hello, child"
 ```
 
+(REPL-friendly definition)
 ```
-def greet_person person: case person | (Adult {age,job,name="Kye"}) -> "burger time" | (Adult {age,job=(Programmer _)} -> "hello, world") | (Adult _) -> "hello, adult" | (Child _) -> "hello, child"
+def greet_person person: case person | (Adult {age,job,name="Kye"}) -> "burger time" | (Adult {age,job=(Programmer _),name}) -> "hello, world" | (Adult _) -> "hello, adult" | (Child _) -> "hello, child"
+```
+
+For example, in the above case statement, the top branch will only match when
+the `person` is an `Adult` whose `name` is `"Kye"`. Check it out.
+
+```
+slick> greet_person (Adult {age=20,job=Worker,name="Kye"})
+“burger time” : String
+slick> greet_person (Adult {age=21,job=Programmer,name="cole"})
+“hello, world” : String
+slick> greet_person (Adult {age=30,job=Worker,name="Bob"})
+“hello, adult” : String
+slick> greet_person (Child {age=5,name="Joe"})
+“hello, child” : String
 ```
