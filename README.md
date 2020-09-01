@@ -56,7 +56,9 @@ unpredictable](https://www.destroyallsoftware.com/talks/wat).  Languages like
 C++, Java, and Rust provide additional _type safety_, preventing invalid
 expressions like `"hi" + 1` at compile time, but they require complicated type
 annotations, are far more verbose, and pose a higher barrier to programming
-beginners.
+beginners. Even developers who primarily code in untyped languages like Python
+or JS have seen the virtue of static type analysis, as evidenced by the
+popularity of Typescript and static analyzers like Flow or mypy.
 
 Slick tries to combine the best of both worlds: a concise, _dynamic-feeling_,
 versatile coding style combined with the safety of static types.  We achieve
