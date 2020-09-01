@@ -119,12 +119,14 @@ expr_op_add:
   | a = expr_op_add; PLUS; b = expr_op_mul { Expr.make_bop "+" a b }
   | a = expr_op_add; PLUS_PLUS; b = expr_op_mul { Expr.make_bop "++" a b }
   | a = expr_op_add; MINUS; b = expr_op_mul { Expr.make_bop "-" a b }
+  | a = expr_op_add; OR; b = expr_op_mul { Expr.make_bop "||" a b }
   | e = expr_op_mul { e }
 
 expr_op_mul:
   | a = expr_op_mul; ASTERISK; b = expr_op_pow { Expr.make_bop "*" a b }
   | a = expr_op_mul; SLASH; b = expr_op_pow { Expr.make_bop "/" a b }
   | a = expr_op_mul; MOD; b = expr_op_pow { Expr.make_bop "%" a b }
+  | a = expr_op_mul; AND; b = expr_op_pow { Expr.make_bop "&&" a b }
   | e = expr_op_pow { e }
 
 expr_op_pow:

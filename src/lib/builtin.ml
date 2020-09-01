@@ -3,49 +3,59 @@ open Fun
 
 let vals =
   let get_int_exn = Val.Get.Exn.primitive %> Val.Primitive.Get.Exn.int in
-  let int_bop name f =
+  let bop in_t get out_t make name f =
     ( name
-    , Val.Function
+    , (let open Val in
+       Function
         (fun a ->
-           Val.Function
+           Function
              (fun b ->
-                let a' = get_int_exn a in
-                let b' = get_int_exn b in
-                Val.(Primitive (Primitive.Int (f a' b')))
+                let a' = get a in
+                let b' = get b in
+                make (f a' b')
              )
         )
+      )
     ,
     let open Type in
     Function
-        ( Primitive Int , Function (Primitive Int, Primitive Int) ) )
+        ( in_t,  Function (in_t, out_t) ) )
   in
-  let int_comp name f =
-    (name,
-     Val.Function
-       (fun a ->
-          Val.Function
-            (fun b ->
-               let a' = get_int_exn a in
-               let b' = get_int_exn b in
-               Variant ((if f a' b' then "True" else "False"), Record [])
-            )
-       ),
-     let open Type in
-     Function
-       (Primitive Int, Function (Primitive Int, bool))
-    )
+  let int_bop =
+    bop
+      Type.(Primitive Int)
+      (Val.Get.Exn.primitive %> Val.Primitive.Get.Exn.int)
+      Type.(Primitive Int)
+      (fun n -> Val.Primitive (Val.Primitive.Int n))
+  in
+  let int_comp =
+    bop
+      Type.(Primitive Int)
+      (Val.Get.Exn.primitive %> Val.Primitive.Get.Exn.int)
+      Type.bool
+      Val.Make.bool
+  in
+  let bool_bop =
+    bop
+      Type.bool
+      Val.Get.Exn.bool
+      Type.bool
+      Val.Make.bool
   in
   [ int_bop "+" Z.add
   ; int_bop "-" Z.sub
   ; int_bop "*" Z.mul
   ; int_bop "/" Z.div
   ; int_bop "%" Z.(mod)
+  ; int_bop "**" (fun a p -> Z.pow a (Z.to_int p))
   ; int_comp "<=" Z.leq
   ; int_comp ">=" Z.geq
   ; int_comp "<" Z.lt
   ; int_comp ">" Z.gt
   ; int_comp "==" Z.equal
   ; int_comp "!=" (fun a b -> not @@ Z.equal a b)
+  ; bool_bop "&&" (&&)
+  ; bool_bop "||" (||)
   ; "$-"
   , (let open Val in
      Function
