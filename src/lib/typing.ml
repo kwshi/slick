@@ -324,8 +324,8 @@ and infer_top ctx annotated =
   (close_expr new_ctx inferred, new_ctx)
 
 and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
-  print_string "infer:\n";
-  print_ctx ctx;
+  (* print_string "infer:\n";
+   * print_ctx ctx; *)
   match annotated.Ast.Expr.expr with
   (* Var  *)
   | Ast.Expr.Var v ->
@@ -483,9 +483,9 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
     (* | _ -> failwith "infer: case, got an input that wasn't a variant (this should've failed earlier)." *)
 
 and check ctx annotated tp =
-  print_string "check:\n";
-  print_tp tp;
-  print_ctx ctx;
+  (* print_string "check:\n";
+   * print_tp tp;
+   * print_ctx ctx; *)
   let open Ast in
   match (annotated.expr, tp) with
   (* forall I *)
@@ -672,10 +672,10 @@ and infer_ext ctx rcd_head tp =
       failwith "infer_ext: Got unexpected type."
 
 and subsumes ctx tp1 tp2 =
-  print_string "susubmes:\n";
-  print_tp tp1;
-  print_tp tp2;
-  print_ctx ctx;
+  (* print_string "susubmes:\n";
+   * print_tp tp1;
+   * print_tp tp2;
+   * print_ctx ctx; *)
   match (tp1, tp2) with
   (* EVar *)
   | EVar ev1, EVar ev2 when Int.(ev1 = ev2) ->
