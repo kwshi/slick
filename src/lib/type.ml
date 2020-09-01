@@ -50,15 +50,18 @@ let rec pp ppf t =
   | Function (a, b) ->
       any "(" ++ const pp a ++ any "@ ->@ " ++ const pp b ++ any ")"
   | EVar ev ->
-      any "e" ++ const int ev
+      any "ε" ++ const int ev
   | TVar tv ->
       const string tv
-  | Forall (a, e) ->
-      any "∀@ " ++ const string a ++ any ".@ " ++ const pp e
-  | ForallRow (a, e) ->
-      any "ꓤ@ " ++ const string a ++ any ".@ " ++ const pp e
+  | Forall (_a, e) ->
+    const pp e
+    (* any "∀@ " ++ const string a ++ any ".@ " ++ const pp e *)
+  | ForallRow (_a, e) ->
+    const pp e
+    (* any "ꓤ@ " ++ const string a ++ any ".@ " ++ const pp e *)
   | Mu (v, e) ->
-      any "µ@ " ++ const string v ++ any ".@ " ++ const pp e
+    const string v ++ any "@ =@ (" ++ const pp e ++ any ")"
+    (* any "µ@ " ++ const string v ++ any ".@ " ++ const pp e *)
   | Primitive p -> (
     match p with
     | Int    -> any "Int"
