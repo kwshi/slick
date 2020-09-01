@@ -45,6 +45,19 @@ def factorial:
     | _ -> n * fact (n-1)
   )
 
+def day_to_int d:
+  case d:
+  | Sunday -> 0
+  | Monday -> 1
+  | Tuesday -> 2
+  | Wednesday -> 3
+  | Thursday -> 4
+  | Friday -> 5
+  | Saturday -> 6
+
+def is_weekday d:
+  (day_to_int d == 0) || (day_to_int d == 6)
+
 def digit_to_string n:
   case n:
   | 0 -> "0"
@@ -86,3 +99,4 @@ def fizz_buzz:
 	 )
       )
   )
+
