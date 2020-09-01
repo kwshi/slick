@@ -68,7 +68,11 @@ rev_module_entries:
   | m = rev_module_entries; e = module_entry { e :: m }
 
 module_entry:
-  | DEF; s = LOWER_IDENT; WALRUS; e = expr { (s, e) }
+  | DEF; s = LOWER_IDENT; args = def_args; WALRUS; e = expr { (s, Expr.make_function_with_args args e) }
+
+def_args:
+  | { [] }
+  | LPAREN; args = non_empty_comma_sequence(LOWER_IDENT); RPAREN { args }
 
 repl:
   | EOF { Ast.Repl.Empty }
@@ -147,6 +151,9 @@ rev_comma_sequence(item):
 
 comma_sequence(item):
   | rev_items = rev_comma_sequence(item) { List.rev rev_items }
+
+non_empty_comma_sequence(item):
+  | i = item; is = comma_sequence(item) { i :: is }
 
 brace_list(entry):
   | LBRACE; vs = comma_sequence(entry); RBRACE { vs }

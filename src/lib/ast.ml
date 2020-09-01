@@ -57,6 +57,8 @@ module Expr = struct
 
     let make_function v e = make @@ Function (v, e)
 
+    let make_function_with_args args e = List.fold_right make_function args e
+
     let make_application e1 e2 = make @@ Application (e1, e2)
 
     let make_record r = make @@ Record r
