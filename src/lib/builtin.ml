@@ -2,9 +2,7 @@ open Containers
 open Fun
 
 let vals =
-  let get_int_exn =
-    Val.Get.Exn.primitive %> Val.Primitive.Get.Exn.int
-  in
+  let get_int_exn = Val.Get.Exn.primitive %> Val.Primitive.Get.Exn.int in
   let int_bop name f =
     ( name
     , Val.Function
@@ -64,6 +62,20 @@ let vals =
           %> const (Val.Record [])))
      , (let open Type in
         Function (Primitive String, unit))
+  ; "++"
+  , (let open Val in
+     Function
+       (fun a ->
+          Function
+            (fun b ->
+               let a' = Get.Exn.primitive a |> Primitive.Get.Exn.str in
+               let b' = Get.Exn.primitive b |> Primitive.Get.Exn.str in
+               Primitive (String (a' ^ b'))
+            )
+       )
+    )
+   , (let open Type in
+     Function (Primitive String, Function (Primitive String, Primitive String)))
   ]
 
 let scope, ctx =

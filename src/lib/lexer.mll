@@ -47,6 +47,7 @@ rule read =
   | '.' { DOT }
   | '-' { MINUS }
   | '+' { PLUS }
+  | "++" { PLUS_PLUS }
   | '*' { ASTERISK }
   | '/' { SLASH }
   | "<" { LT }
