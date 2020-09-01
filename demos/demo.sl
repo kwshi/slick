@@ -1,3 +1,7 @@
+# Demo Slick module, showcasing what Slick code looks like.  To play with it,
+# run `:load "demos/demo.sl"` from the Slick REPL, and try calling `factorial`,
+# `factorial 5`, `fibonacci`, etc.!
+
 # Currently, using the `fix` combinator is our mechanism for implementing
 # recursive functions (btw, `fix` type-checks!  try typing `fix` in the REPL).
 # Eventually, we aim to implement recursion via more sophisticated ways.
