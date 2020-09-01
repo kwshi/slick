@@ -74,22 +74,30 @@ guess what they do, and guess what their types are before you run them...
 
 - `\{a, b} -> a + b` (what about `\x -> x.a + x.b`?)
 
-- `\x -> case x: | True -> False | False -> True`
-
 - `print "hello world!"`
 
-Read the Slick language reference [here](/docs/language-features.md).
+- `\x -> case x: | True -> False | False -> True`
 
-Read about Slick's type system [here](/docs/typing.pdf). This document is mostly
-up-to-date, but there are some recent changes like patterns which aren't in it.
+- `\x -> case x % 2: | 0 -> Even | 1 -> Odd`
+
+- `\x -> {x | new_key="hi"}` (the `{a | k=v}` syntax is called _record
+  extension_.  not sure what that means?  try `(\x -> {x | new_key="hi"})
+  {a=3}`.)
+
+To learn more, check out our 10-minute tutorial [here](/docs/tutorial.md).
+
+For more details, read the Slick language reference
+[here](/docs/language-features.md).
+
+For type-savvy enthusiasts and theorists, read about Slick's type system
+[here](/docs/typing.pdf). This document is mostly up-to-date, but there are some
+recent changes like patterns which aren't in it.
 
 ---
 
 
 
 
-
-Learn how to use Slick in 10 minutes [here](/docs/tutorial.md).
 
 Read more about Slick [here](/docs/about.md).
 
