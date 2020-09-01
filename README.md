@@ -86,6 +86,10 @@ guess what they do, and guess what their types are before you run them...
 
 - `\{a, b} -> a + b` (what about `\x -> x.a + x.b`?)
 
+- `{a=3, b="bar"}` (now try `{a=3, b="bar"}.b`)
+
+- `True`, `False`, `Some 3`
+
 - `print "hello world!"`
 
 - `\x -> case x: | True -> False | False -> True`
