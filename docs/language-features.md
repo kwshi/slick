@@ -15,50 +15,46 @@ The `1 + 2` is the input, and `3 : Int` is the output.
 
 `3` is the output value and `Int` is the output type.
 
-<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
 **Table of Contents**
 
-- [Language Features](#language-features)
-    - [Integers](#integers)
-        - [Literals](#literals)
-        - [Functions on integers](#functions-on-integers)
-    - [Strings](#strings)
-        - [Literals](#literals-1)
-        - [Functions on strings](#functions-on-strings)
-    - [Booleans](#booleans)
-        - [Literals](#literals-2)
-        - [Functions on booleans](#functions-on-booleans)
-        - [A note on booleans](#a-note-on-booleans)
-    - [Functions](#functions)
-        - [Anonymous functions](#anonymous-functions)
-        - [Function application](#function-application)
-    - [Records](#records)
-        - [Defining records](#defining-records)
-        - [Getting elements](#getting-elements)
-        - [Extending records](#extending-records)
-        - [Record polymorphism](#record-polymorphism)
-    - [Tags](#tags)
-        - [Defining tags](#defining-tags)
-        - [Using tags (case statements)](#using-tags-case-statements)
-    - [Patterns](#patterns)
-        - [Literal patterns](#literal-patterns)
-        - [Variable patterns](#variable-patterns)
-        - [Wildcard pattern](#wildcard-pattern)
-        - [Tag patterns](#tag-patterns)
-        - [Record patterns](#record-patterns)
-        - [Nested pattern matches](#nested-pattern-matches)
-    - [Assignments](#assignments)
-    - [Definitions](#definitions)
-    - [Types](#types)
-        - [Base types](#base-types)
-        - [Functions](#functions-1)
-        - [Record types](#record-types)
-        - [Tag types (variant types)](#tag-types-variant-types)
-        - [Quantified types](#quantified-types)
-        - [Recursive types](#recursive-types)
-        - [More details](#more-details)
-
-<!-- markdown-toc end -->
+- [Integers](#integers)
+    - [Literals](#literals)
+    - [Functions on integers](#functions-on-integers)
+- [Strings](#strings)
+    - [Literals](#literals-1)
+    - [Functions on strings](#functions-on-strings)
+- [Booleans](#booleans)
+    - [Literals](#literals-2)
+    - [Functions on booleans](#functions-on-booleans)
+    - [A note on booleans](#a-note-on-booleans)
+- [Functions](#functions)
+    - [Anonymous functions](#anonymous-functions)
+    - [Function application](#function-application)
+- [Records](#records)
+    - [Defining records](#defining-records)
+    - [Getting elements](#getting-elements)
+    - [Extending records](#extending-records)
+    - [Record polymorphism](#record-polymorphism)
+- [Tags](#tags)
+    - [Defining tags](#defining-tags)
+    - [Using tags (case statements)](#using-tags-case-statements)
+- [Patterns](#patterns)
+    - [Literal patterns](#literal-patterns)
+    - [Variable patterns](#variable-patterns)
+    - [Wildcard pattern](#wildcard-pattern)
+    - [Tag patterns](#tag-patterns)
+    - [Record patterns](#record-patterns)
+    - [Nested pattern matches](#nested-pattern-matches)
+- [Assignments](#assignments)
+- [Definitions](#definitions)
+- [Types](#types)
+    - [Base types](#base-types)
+    - [Functions](#functions-1)
+    - [Record types](#record-types)
+    - [Tag types (variant types)](#tag-types-variant-types)
+    - [Quantified types](#quantified-types)
+    - [Recursive types](#recursive-types)
+    - [More details](#more-details)
 
 ## Integers
 
@@ -76,7 +72,6 @@ slick> 314
 Slick supports most standard options on integers. 
 
 |Operator  |  Function  |
-|          |            |
 |----------|------------|
 | `+`      | Addition   |
 | `-`      | Subtraction |
@@ -126,7 +121,7 @@ slick> "hello, slick!"
 | Function | Descripion |
 |----------|------------|
 | `&&`     | Logical "and"|
-| `||`     | Logical "or"|
+| `\|\|`     | Logical "or"|
 
 ### A note on booleans
 
