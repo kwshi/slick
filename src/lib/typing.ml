@@ -951,6 +951,8 @@ and row_tail_subsumes ctx tail1 missingFrom1 tail2 missingFrom2 =
   | Some (Tail_tvar tv1), [], Some (Tail_tvar tv2), []
     when String.(equal tv1 tv2) ->
       ctx
+  | Some (Tail_evar ev1), _, Some (Tail_evar ev2), _ when Int.(ev1 = ev2) ->
+     ctx
   | Some (Tail_evar ev1), _, Some (Tail_evar ev2), _ ->
       (* print_string @@ "row tail subsumes: ev" ^ Int.to_string ev1 ^ " and ev" ^ Int.to_string ev2;
        * print_newline ();
