@@ -1,17 +1,17 @@
-{pkgs ? import <nixos-unstable> {}}:
+{pkgs ? import <nixpkgs> {}}:
 pkgs.mkShell {
   buildInputs = with pkgs.ocamlPackages; [
+    dune_2
     ocaml
     utop
     findlib
     zarith
+    fmt
+    cmdliner
     alcotest
     containers
     menhir
     sedlex
-    js_of_ocaml
-    js_of_ocaml-compiler
-    dune_2
   ];
 }
 
