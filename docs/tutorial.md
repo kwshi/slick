@@ -119,23 +119,20 @@ Let's take a look at
 \x -> \y -> x
 ```
 
-There are two ways to read this: the simpler way is as a function that takes two
-arguments, `x` and `y`, and returns `x`, ignoring `y`.
-
-The more complicated, but technically correct way is as a function which takes
-`x` and _returns_ a function `\y -> x`, which ignores its `y` and gives back the
-original `x`. If that sounds weird, just don't think about it.
+This syntax looks a little weird, but it defines a function that takes two
+arguments, `x`, and `y`. It returns only `x`. Remember, this is an anonymous
+function, so its body is simply an expression that evaluated to a value.
 
 Here's how we give multiple arguments
 
 ```
-slick> ((\x -> \y -> x) 1) 2
+slick> (\x -> \y -> x) 1 2
 1 : Int
 ```
 
-This syntax looks a lot weirder, and it's because of the technically correct way
-to interpret taking multiple arguments. Fortunately, there's a simpler way to
-take multiple arguments in Slick!
+This might seem a little weird to you, especially the syntax for defnining the
+function. Fortunately, there's a simpler way to take multiple arguments in
+Slick!
 
 ## Introducing: records
 
@@ -146,16 +143,21 @@ guaranteed to work!
 Let's dive right in with an example:
 
 ```
-slick> { x = 12, y = 5 }
-{x = 12, y = 5} : {x : Int, y : Int}
+slick> { x = 12, y = "hello" }
+{x = 12, y = "hello"} : {x : Int, y : String}
 ```
 
 This is a record with two fields: `x` and `y`, both of type `Int`. We can access
 the fields using `.`, like in `record.field_name`.
 
 ```
-slick> { x = 12, y = 5 }.x
+slick> { x = 12, y = "hello" }.x
 12 : Int
+```
+
+```
+slick> { x = 12, y = "hello" }.y
+"hello" : String
 ```
 
 Can we use records as inputs to our functions? We totally can. And we don't even
@@ -163,21 +165,18 @@ need to specify that we expect an input that is of the record type, we can just
 use it like a record and Slick will infer its type for us.
 
 ```
-slick> (\record -> record.x) {x = 12, y = 5}
+slick> (\record -> record.x) {x = 12, y = "hello"}
 12 : Int
 ```
 
 So we can use records to obtain multiple arguments to our functions.
 
 ```
-slick> (\args -> args.f args.x) {f = \x -> x, x = 3}
-3 : Int
+slick> (\args -> args.x + args.y) {x = 5, y = 12}
+17 : Int
 ```
 
-What's happening here? Remember how functions are just regular values? We
-defined a function `\args -> args.f args.x` that expects a record `args`
-containing a field `f`, which is a function, and a field `x`, which is an
-argument of `f`. We then apply `f` to `x`.
+One important point to note is that Slick 
 
 ## Extending our knowledge of records
 

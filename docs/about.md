@@ -8,16 +8,31 @@ versatility of languages like Python and Swift.
 Slick is designed to be simple, concise, and safe. Below are some features that
 demonstrate these values.
 
+## About the about
+
+All of the code examples beginning with `slick>` are invocations of the Slick
+REPL. You can try them yourself!
+
+The first line describes the input, and the second line is its output when run.
+
+The output consists of two parts: the value returned and the inferred type,
+separated by a colon.
+
+```
+slick> "hello, slick!"
+"hello, slick" : String
+```
+
 ## First class functions
 
 Most things in Slick are values, including functions.
 
 ```
-slick> (\f -> f(3)) (\x -> x + 2)
+slick> (\f -> f 3) (\x -> x + 2)
 5 : Int
 ```
 
-Most of the code in Slick that you will write boils down to transforming one
+A lot of the code in Slick that you will write boils down to transforming one
 value into another.
 
 ## Powerful type inference
@@ -26,7 +41,7 @@ You don't need to declare types, Slick will infer them for you and ensure that
 your programs are free of type mismatches.
 
 ```
-slick> \f -> \x -> f(x+1)
+slick> \f -> \x -> f (x+1)
 <function> : ∀ α. ((Int -> α) -> (Int -> α))
 ```
 
@@ -85,7 +100,7 @@ For additional type safety, you can give any value a tag. This allows you to
 safely separate data into semantic categories.
 
 ```
-slick> \t -> case t: | Seconds s -> s | Minutes m -> 60 * m | Hours h -> 3600 * h
+slick> \t -> case t | Seconds s -> s | Minutes m -> 60 * m | Hours h -> 3600 * h
 <function> : (⟦Seconds : Int, Minutes : Int, Hours : Int⟧ -> Int)
 ```
 
@@ -94,6 +109,23 @@ are all treated differently, and the type checker rejects the input `t` if it
 isn't one of these categories.
 
 ```
-slick> (\t -> case t: | Seconds s -> s | Minutes m -> 60 * m | Hours h -> 3600 * h) (Lightyears 30)
+slick> (\t -> case t | Seconds s -> s | Minutes m -> 60 * m | Hours h -> 3600 * h) (Lightyears 30)
 ! Type mismatch !
+```
+
+## Pattern matching
+
+Putting the above together, Slick lets you pattern match on most variables.
+
+```
+def greet_person person: 
+  case person 
+  | (Adult {age,job,name="Kye"}) -> "burger time"
+  | (Adult {age,job=(Programmer _)} -> "hello, world")
+  | (Adult _) -> "hello, adult"
+  | (Child _) -> "hello, child"
+```
+
+```
+def greet_person person: case person | (Adult {age,job,name="Kye"}) -> "burger time" | (Adult {age,job=(Programmer _)} -> "hello, world") | (Adult _) -> "hello, adult" | (Child _) -> "hello, child"
 ```
