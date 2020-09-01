@@ -69,11 +69,12 @@ rev_module_entries:
   | m = rev_module_entries; e = module_entry { e :: m }
 
 module_entry:
-  | DEF; s = LOWER_IDENT; args = def_args; COLON; e = expr { (s, Expr.make_function_with_args args e) }
+  | DEF; s = LOWER_IDENT; args = rev_def_args; COLON; e = expr { (s, Expr.make_function_with_args (List.rev args) e) }
 
-def_args:
-  | { [] }
-  | LPAREN; args = non_empty_comma_sequence(pattern); RPAREN { args }
+
+rev_def_args:
+  | a = pattern_atom { [a] }
+  | args = rev_def_args; a = pattern_atom { a :: args }
 
 repl:
   | EOF { Ast.Repl.Empty }
@@ -82,15 +83,15 @@ repl:
   | s = LOWER_IDENT; WALRUS; e = expr; EOF { Ast.Repl.Def (s, e) }
 
 pattern:
-  | v = UPPER_IDENT; { Ast.Pattern.Variant (v, Ast.Pattern.Record []) }
-  | LPAREN; p = variant_pattern; RPAREN { p }
-  | p = record_pattern { p }
+  | lbl = UPPER_IDENT; p = pattern_atom { Ast.Pattern.Variant (lbl, p)}
   | p = pattern_atom { p }
 
 pattern_atom:
-  | LPAREN; p = pattern; RPAREN { p }
+  | v = UPPER_IDENT { Ast.Pattern.Variant (v, Ast.Pattern.Record []) }
+  | p = record_pattern { p }
   | p = literal_pattern { p }
   | v = LOWER_IDENT { Ast.Pattern.Var v }
+  | LPAREN; p = pattern; RPAREN { p }
 
 expr:
   | v = LOWER_IDENT; WALRUS; e = expr_body; SEMICOLON; b = expr { Expr.make_assign v e b }
@@ -163,9 +164,6 @@ rev_comma_sequence(item):
 comma_sequence(item):
   | rev_items = rev_comma_sequence(item) { List.rev rev_items }
 
-non_empty_comma_sequence(item):
-  | i = item; is = comma_sequence(item) { i :: is }
-
 brace_list(entry):
   | LBRACE; vs = comma_sequence(entry); RBRACE { vs }
 
@@ -174,6 +172,7 @@ record_expr:
 
 record_expr_entry:
   | k = LOWER_IDENT; EQUALS; v = expr { (k, v) }
+  | k = LOWER_IDENT { (k, Expr.make_var k) }
 
 record_pattern:
   | l = brace_list(record_pattern_entry) { Ast.Pattern.Record l }
@@ -182,10 +181,7 @@ record_pattern_entry:
   | k = LOWER_IDENT { (k, Ast.Pattern.Var k) }
   | k = LOWER_IDENT; EQUALS; p = pattern; { (k, p) }
   (* No need for parens inside of a record *)
-  | k = LOWER_IDENT; EQUALS; p = variant_pattern; { (k, p) }
 
-variant_pattern:
-  | lbl = UPPER_IDENT; p = pattern { Ast.Pattern.Variant (lbl, p)}
 
 literal_pattern:
   | n = STRING { Ast.Pattern.Literal (String n)}
