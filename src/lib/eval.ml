@@ -41,30 +41,18 @@ let rec evaluate (sc : Val.t Scope.t) expr =
        | String s -> String s
       )
   | Case (e, cs) ->
-    (match evaluate sc e with
-     | Variant (tag, e) ->
-       let sc', e' =
-         List.find_map
-           (function
-             | (Ast.Expr.Tag_pat (tag', pat), e') when String.equal tag tag' ->
-               (match Ast.match_pat (pat, e) with
-               | Some pat_bindings -> Some (Scope.add_list sc pat_bindings, e')
-               | None -> None
-               )
-             | (Var_pat var, e') ->
-               Some (Scope.add var (Val.Variant (tag, e)) sc, e')
-                 
-             | _ ->
-               None
-                 
-           )
-           cs
-         |> Option.get_exn
-       in
-       evaluate sc' e'
-
-     | _ -> assert false
-    )
+    let e' = evaluate sc e in
+    let sc', case_inner =
+      List.find_map
+        (fun (pat, case_inner) ->
+          match Ast.match_pat (pat, e') with
+          | Some pat_bindings -> Some (Scope.add_list sc pat_bindings, case_inner)
+          | None -> None
+        )
+        cs
+      |> Option.get_exn
+    in
+      evaluate sc' case_inner
   | Bop (o, a, b) ->
     Scope.find o sc
     |> apply_to a
