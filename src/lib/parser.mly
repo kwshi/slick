@@ -72,13 +72,24 @@ module_entry:
 
 def_args:
   | { [] }
-  | LPAREN; args = non_empty_comma_sequence(LOWER_IDENT); RPAREN { args }
+  | LPAREN; args = non_empty_comma_sequence(pattern); RPAREN { args }
 
 repl:
   | EOF { Ast.Repl.Empty }
   | e = expr; EOF { Ast.Repl.Expr e }
   | e = module_entry; EOF { let s, e = e in Ast.Repl.Def (s, e) }
   | s = LOWER_IDENT; WALRUS; e = expr; EOF { Ast.Repl.Def (s, e) }
+
+pattern:
+  | v = UPPER_IDENT; { Ast.Pattern.Variant (v, Ast.Pattern.Record []) }
+  | LPAREN; p = variant_pattern; RPAREN { p }
+  | p = record_pattern { p }
+  | p = pattern_atom { p }
+
+pattern_atom:
+  | LPAREN; p = pattern; RPAREN { p }
+  | p = literal_pattern { p }
+  | v = LOWER_IDENT { Ast.Pattern.Var v }
 
 expr:
   | v = LOWER_IDENT; WALRUS; e = expr_body; SEMICOLON; b = expr { Expr.make_assign v e b }
@@ -158,22 +169,26 @@ non_empty_comma_sequence(item):
 brace_list(entry):
   | LBRACE; vs = comma_sequence(entry); RBRACE { vs }
 
-(* 
-record_type:
-  | l = brace_list(record_type_entry) { l }
-
-record_type_entry:
-  | k = LOWER_IDENT; COLON; t = type_ { (k, t) }
-
-*)
-
 record_expr:
   | l = brace_list(record_expr_entry) { l }
 
 record_expr_entry:
   | k = LOWER_IDENT; EQUALS; v = expr { (k, v) }
 
+record_pattern:
+  | l = brace_list(record_pattern_entry) { Ast.Pattern.Record l }
+
+record_pattern_entry:
+  | k = LOWER_IDENT; EQUALS; p = pattern; { (k, p) }
+  (* No need for parens inside of a record *)
+  | k = LOWER_IDENT; EQUALS; p = variant_pattern; { (k, p) }
+
+variant_pattern:
+  | lbl = UPPER_IDENT; p = pattern { Ast.Pattern.Variant (lbl, p)}
+
+literal_pattern:
+  | n = STRING { Ast.Pattern.Literal (String n)}
+  | i = INT { Ast.Pattern.Literal (Int i)}
+
 function_expr:
-  | BACKSLASH; v = LOWER_IDENT; ARROW; e = expr { Expr.make_function v e }
-
-
+  | BACKSLASH; p = pattern; ARROW; e = expr { Expr.make_function p e }

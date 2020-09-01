@@ -10,24 +10,6 @@ let next_line lb =
     pos_lnum = pos.pos_lnum + 1;
   }
 
-(* let convert_string str =
- *   let open Seq in
- *   let rec go x = match x () with
- *   | Cons ('"', Nil) -> Nil
- *   | Cons ('\\', rest) ->
- *     (match rest () with
- *     | Cons ('"', rest) -> Cons ('"', go rest)
- *     | Cons ('\\', rest) -> Cons ('\\', go rest)
- *     | Cons ('n', rest) -> Cons ('\n', go rest)
- *     | Cons ('r', rest) -> Cons ('\r', go rest)
- *     | Cons ('t', rest) -> Cons ('\t', go rest)
- *     | _ -> failwith "lexing error: malformed string literal."
- *     )
- *   | Cons (c, rest) -> Cons (c, go rest)
- *   | Nil -> failwith "lexing error: string not terminated by quotation (this shouldn't happen)."
- *   in match List.of_seq @@ String.to_seq str with
- *      | Cons ('"', rest) -> String.of_seq (go rest)
- *      | _ -> failwith "lexing error: string not beginning with quotation (this shouldn't happen)." *)
 }
 
 

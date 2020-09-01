@@ -347,19 +347,20 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
         }
       , new_ctx )
   (* ->I => *)
-  | Ast.Expr.Function (var, e) ->
+  | Ast.Expr.Function (pat, e) ->
       let arg_ev_tp, arg_ev_ce, _, ctx' = Ctx.fresh_evar ctx in
       let ret_ev_tp, ret_ev_ce, _, ctx'' = Ctx.fresh_evar ctx' in
       let marker = Ctx.Marker arg_ev_ce in
-      let fun_ctx =
+      let pat_ctx =
         Ctx.append_ctx
-          [marker; arg_ev_ce; ret_ev_ce; Ctx.Var (var, arg_ev_tp)]
+          [marker; arg_ev_ce; ret_ev_ce]
           ctx''
       in
+      let fun_ctx = check_pat pat_ctx pat arg_ev_tp in
       let e_checked, new_ctx = check fun_ctx e ret_ev_tp in
       let fun_expr =
         Ctx.apply_ctx_expr new_ctx
-          { Ast.Expr.expr= Ast.Expr.Function (var, e_checked)
+          { Ast.Expr.expr= Ast.Expr.Function (pat, e_checked)
           ; Ast.Expr.tp= Type.Function (arg_ev_tp, ret_ev_tp) }
       in
       let quantified_fun_expr =
@@ -401,8 +402,6 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
       let t = Ctx.lookup_var o ctx in
       let a', t', ctx' = infer_app ctx t a in
       ({expr= Uop(o, a'); tp = t'}, ctx')
-
-
   | Ast.Expr.Variant (lbl, e) ->
       let e_inferred, new_ctx = infer ctx e in
       let e_inferred' = Ctx.apply_ctx_expr new_ctx e_inferred in
@@ -530,11 +529,13 @@ and check ctx annotated tp =
       ( {checked_e with tp= ForallRow (tv, checked_e.tp)}
       , Ctx.drop_ctx_from (Ctx.Row_tvar tv) new_ctx )
   (* -> I *)
-  | Expr.Function (var, e), Function (arg_tp, return_tp) ->
-      let fun_ctx = Ctx.append_ctx [Ctx.Var (var, arg_tp)] ctx in
+  | Expr.Function (pat, e), Function (arg_tp, return_tp) ->
+      let marker, ctx' = Ctx.fresh_marker ctx in
+      let ctx'' = Ctx.append_ctx [marker] ctx' in
+      let fun_ctx = check_pat ctx'' pat arg_tp in
       let checked_e, new_ctx = check fun_ctx e return_tp in
-      ( {expr= Function (var, checked_e); tp= Function (arg_tp, return_tp)}
-      , Ctx.drop_ctx_from (Ctx.Var (var, arg_tp)) new_ctx )
+      ( {expr= Function (pat, checked_e); tp= Function (arg_tp, return_tp)}
+      , Ctx.drop_ctx_from marker new_ctx )
   (* <= Mu *)
   | _, Mu mu ->
       check ctx annotated (unfold_mu mu)
@@ -545,6 +546,39 @@ and check ctx annotated tp =
       let new_ctx = subsumes ctx' e_inferred'.tp (Ctx.apply_ctx ctx' tp) in
       (* do we do { e_inferred with tp } ? *)
       (e_inferred', new_ctx)
+
+and infer_pat ctx pattern =
+  let open Ast.Pattern in
+  match pattern with
+  | Var v ->
+    let ev_tp, ev_ce, _, ctx' = Ctx.fresh_evar ctx in
+    let var_ctx = Ctx.append_ctx [ev_ce; Ctx.Var (v, ev_tp)] ctx' in
+    (ev_tp, var_ctx)
+  | Literal l ->
+    let tp = match l with
+             | Int _ -> Type.Primitive Int
+             | String _ -> Type.Primitive String
+    in
+    (tp, ctx)
+  | Variant (v, p) ->
+    let p_tp, p_ctx = infer_pat ctx p in
+    let row_tail, row_tail_ce, _, ctx' = Ctx.fresh_row_evar p_ctx in
+    let ctx'' = Ctx.append_ctx [row_tail_ce] ctx' in
+    (Type.Variant ([(v, p_tp)], Some row_tail), ctx'')
+  | Record r ->
+      let new_ctx, inferred_r =
+        List.fold_map
+          (fun ctx (label, e) ->
+            let inferred_tp, new_ctx = infer_pat ctx e in
+            (new_ctx, (label, inferred_tp)))
+          ctx r
+      in
+      (Record (inferred_r, None), new_ctx )
+
+and check_pat ctx pattern tp =
+  let pat_tp, ctx' = infer_pat ctx pattern in
+  let pat_tp' = Ctx.apply_ctx ctx' pat_tp in
+  subsumes ctx' pat_tp' (Ctx.apply_ctx ctx' tp)
 
 and infer_app ctx tp e1 =
   (* print_string "infer_app:\n";

@@ -9,8 +9,11 @@ let rec evaluate (sc : Val.t Scope.t) expr =
   match expr.Ast.Expr.expr with
   | Assign (v, e, b) ->
       evaluate (Scope.add v (evaluate sc e) sc) b
-  | Function (v, e) ->
-      Function (fun value -> evaluate (Scope.add v value sc) e)
+  | Function (pat, e) ->
+      Function (fun value ->
+        match Ast.match_pat (pat, value) with
+        | Some pat_bindings -> evaluate (Scope.add_list sc pat_bindings ) e
+        | None -> failwith "evaluate function: Pattern match failed.")
   | Application (f, e) -> 
     evaluate sc f |> apply_to e
   | Record r ->
