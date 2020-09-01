@@ -109,12 +109,65 @@ For type-savvy enthusiasts and theorists, read about Slick's type system
 [here](/docs/typing.pdf). This document is mostly up-to-date, but there are some
 recent changes like patterns which aren't in it.
 
-
-
 ---
 
-## How to build and run (locally)
+## How to build and run locally
 
+### Fetch repository
 
----
+```
+git clone https://github.com/kwshi/slick
+```
 
+### Install opam (skip if using other package manager for OCaml)
+
+- macOS (Homebrew):
+
+  - `brew install opam`
+  - `opam init -c 4.10.0`, follow instructions to setup
+
+- Linux:
+
+  - use your OS's package manager to install `opam`:
+
+    - Ubuntu: `apt-get install opam`
+
+    - Nix: `nix-env -i opam`.  
+
+    - Fedora/CentOS/RHEL: `yum install opam` (I just guessed this one, might be
+      wrong)
+
+  - `opam init -c 4.10.0`, follow instructions
+
+- Windows:
+
+  - I honestly don't know.  As far as I can tell, you're on your own.  Why
+    not use WSL?
+
+### Install OCaml packages
+
+- opam:
+
+  - `opam install dune`
+
+  - `dune external-lib-deps src` to list all of Slick's library dependencies.
+    Then run `opam install <pkgs...>`.  As of writing, that looks like
+
+    ```
+    opam install cmdliner containers fmt linenoise ppx_deriving zarith
+    ```
+
+  - `opam pin containers 2.7`, because we're old and obsolete and using an
+    outdated version of containers.  Sorry--we'll update soon.
+
+- Nix shell:
+
+  - Simply run `nix-shell` from the project root after cloning.
+
+### Compile and run!
+
+- `dune build` to build everything (libraries and executables)
+
+- `dune build src/exe` to build the Slick REPL executable
+
+- `dune exec slick` to build and run the Slick REPL
