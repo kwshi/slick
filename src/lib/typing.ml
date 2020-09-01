@@ -412,13 +412,14 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
       (* TODO for assignments that involve updates: check if var is in the context. if it is, check e1 against its type. otherwise, infer the type of e1 - and use that as var's assignment. *)
       let e1_inferred, new_ctx = infer ctx e1 in
       let e1_inferred' = Ctx.apply_ctx_expr new_ctx e1_inferred in
+      let var_assignment = Ctx.Var (var, e1_inferred'.tp) in
       let assign_ctx =
-        Ctx.append_ctx [Ctx.Var (var, e1_inferred'.tp)] new_ctx
+        Ctx.append_ctx [var_assignment] new_ctx
       in
       let e2_inferred, new_ctx' = infer assign_ctx e2 in
       ( { expr= Ast.Expr.Assign (var, e1_inferred', e2_inferred)
         ; tp= e2_inferred.tp }
-      , new_ctx' )
+      , Ctx.drop_ctx_from var_assignment new_ctx' )
   | Ast.Expr.Projection (e, lbl) ->
       let e_inferred, new_ctx = infer ctx e in
       let e_inferred' = Ctx.apply_ctx_expr new_ctx e_inferred in

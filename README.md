@@ -1,5 +1,21 @@
 # slick
 
+## Table of contents
+
+- [How to run on repl.it:](#how-to-run-on-replit)
+- [Slick quick links](#slick-quick-links)
+- [Slick in a nutshell](#slick-in-a-nutshell)
+- [How to build and run locally](#how-to-build-and-run-locally)
+    - [Fetch repository](#fetch-repository)
+    - [Install opam (skip if using other package manager for OCaml)](#install-opam-skip-if-using-other-package-manager-for-ocaml)
+    - [Install OCaml packages](#install-ocaml-packages)
+    - [Compile and run!](#compile-and-run)
+- [FAQs](#faqs)
+    - [Help! I don't understand this error message!](#help-i-dont-understand-this-error-message)
+    - [Why is Slick so slow?](#why-is-slick-so-slow)
+    - [What do you mean by "static" safety?  Aren't the errors still occurring when I try to _run_ the code?](#what-do-you-mean-by-static-safety--arent-the-errors-still-occurring-when-i-try-to-run-the-code)
+- [Acknowledgements](#acknowledgements)
+
 ## How to run on repl.it:
 
 To run the [Slick REPL on repl.it](https://repl.it/@SlickLang/slick), use the
@@ -12,6 +28,20 @@ code looks like.  Try running the following:
 
 - From inside the REPL: `:load "demos/demo.sl"`, then try running `fibonacci`,
   `fibonacci 8`, `factorial`, `factorial 7`, etc.
+
+## Slick quick links
+
+* Read a quick overview of Slick [below](#slick-in-a-nutshell) and
+  a slightly more detailed one [here](/docs/about.md).
+
+* To learn how to use Slick, check out our 10-minute tutorial
+  [here](/docs/tutorial.md).
+
+* The full Slick language reference can be found [here](/docs/language-features.md).
+
+* For type-savvy enthusiasts and theorists, you can read about Slick's type
+system [here](/docs/typing.pdf). This document is mostly up-to-date, but there
+are some recent changes like patterns which aren't in it.
 
 ## Slick in a nutshell
 
@@ -100,17 +130,6 @@ guess what they do, and guess what their types are before you run them...
 - `\x -> {x | new_key="hi"}` (the `{a | k=v}` syntax is called _record
   extension_.  not sure what that means?  try `(\x -> {x | new_key="hi"})
   {a=3}`.)
-
-To learn more, check out our 10-minute tutorial [here](/docs/tutorial.md).
-
-Read more about Slick [here](/docs/about.md).
-
-For more details, read the Slick language reference
-[here](/docs/language-features.md).
-
-For type-savvy enthusiasts and theorists, read about Slick's type system
-[here](/docs/typing.pdf). This document is mostly up-to-date, but there are some
-recent changes like patterns which aren't in it.
 
 ## How to build and run locally
 
@@ -228,9 +247,11 @@ likely via LLVM) to Slick.
   (polymorphic variants).
 
 - Much of the language's motivation and design philosophy was inspired by work
-  during @kwshi's internship at Bloomberg.  (The code and implementation of
-  Slick are completely original, independent of the code written at Bloomberg,
-  but many of the ideas take after the Bloomberg "in spirit".)
+  during @kwshi's internship at Bloomberg. (The code and implementation of Slick
+  are completely original, independent of the code written at Bloomberg, but
+  many of the ideas take after the Bloomberg "in spirit".) Ditto that of Awake
+  Security's internal language at @cole-k's internship. Thanks, guys, for
+  properly indoctrinating us on row types.
 
 - This cool bidirectional-type-inference paper:
   <https://www.cl.cam.ac.uk/~nk480/bidir.pdf>.

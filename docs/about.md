@@ -100,7 +100,7 @@ For additional type safety, you can give any value a tag. This allows you to
 safely separate data into semantic categories.
 
 ```
-slick> \t -> case t | Seconds s -> s | Minutes m -> 60 * m | Hours h -> 3600 * h
+slick> \t -> case t: | Seconds s -> s | Minutes m -> 60 * m | Hours h -> 3600 * h
 <function> : (⟦Seconds : Int, Minutes : Int, Hours : Int⟧ -> Int)
 slick> (\t -> case t | Seconds s -> s | Minutes m -> 60 * m | Hours h -> 3600 * h) (Hours 2)
 7200 : Int
@@ -111,7 +111,7 @@ are all treated differently, and the type checker rejects the input `t` if it
 isn't one of these categories.
 
 ```
-slick> (\t -> case t | Seconds s -> s | Minutes m -> 60 * m | Hours h -> 3600 * h) (Lightyears 30)
+slick> (\t -> case t: | Seconds s -> s | Minutes m -> 60 * m | Hours h -> 3600 * h) (Lightyears 30)
 ! Type mismatch !
 ```
 
@@ -121,7 +121,7 @@ Putting the above together, Slick lets you pattern match on most variables.
 
 ```
 def greet_person person: 
-  case person 
+  case person:
   | (Adult {age,job,name="Kye"}) -> "burger time"
   | (Adult {age,job=(Programmer _),name}) -> "hello, world"
   | (Adult _) -> "hello, adult"
