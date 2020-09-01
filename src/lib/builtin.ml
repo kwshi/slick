@@ -56,6 +56,12 @@ let vals =
   ; int_comp "!=" (fun a b -> not @@ Z.equal a b)
   ; bool_bop "&&" (&&)
   ; bool_bop "||" (||)
+  ; "true"
+  , Val.Make.bool true
+  , Type.bool
+  ; "false"
+  , Val.Make.bool false
+  , Type.bool
   ; "$-"
   , (let open Val in
      Function

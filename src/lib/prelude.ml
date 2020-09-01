@@ -16,16 +16,12 @@ let prelude =
 |}
   *)
   (* dirty type hacks *)
-      (*
-  ; "true"
-, {|(\x -> case x | True -> x | False -> x) True |}
-  ; "false"
-  , {|(\x -> case x | True -> x | False -> x) False|}
-  ; "some"
+    (*
+   "some"
     , {|\a -> (\x -> case x | Some _ -> x | None -> x) (Some a)|}
   ; "none"
     , {|(\x -> case x | Some _ -> x | None -> x) None|}
-         *)
+       *)
   ] 
   |> List.map (Pair.map2 parse_string)
   |> Module.eval

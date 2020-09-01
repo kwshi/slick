@@ -77,7 +77,7 @@ module_entry:
 
 
 rev_def_args:
-  | a = pattern_atom { [a] }
+  | { [] }
   | args = rev_def_args; a = pattern_atom { a :: args }
 
 repl:
@@ -85,6 +85,7 @@ repl:
   | e = expr; EOF { Ast.Repl.Expr e }
   | e = module_entry; EOF { let s, e = e in Ast.Repl.Def (s, e) }
   | s = LOWER_IDENT; WALRUS; e = expr; EOF { Ast.Repl.Def (s, e) }
+  | COLON; c = LOWER_IDENT; s = STRING { Ast.Repl.Cmd (c, s) }
 
 pattern:
   | lbl = UPPER_IDENT; p = pattern_atom { Ast.Pattern.Variant (lbl, p)}
@@ -100,7 +101,7 @@ pattern_atom:
 expr:
   | v = LOWER_IDENT; WALRUS; e = expr_body; SEMICOLON; b = expr { Expr.make_assign v e b }
   | f = function_expr { f }
-  | CASE; e = expr_body; l = rev_case_entries { Expr.make_case e (List.rev l) }
+  | CASE; e = expr_body; COLON; l = rev_case_entries { Expr.make_case e (List.rev l) }
   | e = expr_body { e }
 
 expr_body:

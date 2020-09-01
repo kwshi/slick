@@ -104,6 +104,7 @@ module Repl = struct
     | Empty
     | Def of string * 'tp Expr.t
     | Expr of 'tp Expr.t
+    | Cmd of string * string
 end
 
 let rec match_pat =
