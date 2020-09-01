@@ -55,7 +55,11 @@ rule read =
   | ">" { GT }
   | ">=" { GE }
   | "==" { EQ }
+  | "||" { OR }
+  | "&&" { AND }
+  | "**" { POW }
   | "!=" { NE }
+  | '%' { MOD }
   | '"' { STRING (read_string (Buffer.create 16) lexbuf) }
   | nonnegative_digits { INT (Lexing.lexeme lexbuf |> Z.of_string) } 
   | lower_ident { LOWER_IDENT (Lexing.lexeme lexbuf) }

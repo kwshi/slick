@@ -60,6 +60,24 @@ let rec repl (sc, ctx) : unit =
         ; repl
             (Slick.Scope.add s v sc
             ,Slick.Context.append_ctx [Slick.Context.Var (s, t)] ctx)
+
+        | Slick.Ast.Repl.Cmd ("load", f) ->
+          if Sys.file_exists f then
+            let ch = open_in f in
+            let sc', ctx' = Lexing.from_channel ch
+                            |> Slick.Parser.module_ Slick.Lexer.read
+                            |> Slick.Module.eval
+            in
+            close_in ch;
+            repl
+              (Slick.Scope.union (fun _ _ b -> Some b) sc sc'
+              ,Slick.Context.append_ctx ctx'.context ctx)
+          else
+            err @@ Fmt.(any "file@ `" ++ const string f ++ any "`@ does@ not@ exist!")
+
+        | Slick.Ast.Repl.Cmd (c, _) ->
+          err @@ Fmt.(styled `Bold (any "invalid@ command:@ ") ++ const string c)
+            
             
       with
       | Slick.Ast.SyntaxError s ->

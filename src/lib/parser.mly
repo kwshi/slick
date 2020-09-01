@@ -16,6 +16,7 @@ module Slick = struct end
 %token DEF
 %token MINUS
 %token PLUS
+%token MOD
 %token PLUS_PLUS
 %token ASTERISK
 %token LPAREN
@@ -36,6 +37,9 @@ module Slick = struct end
 %token LT
 %token EQ
 %token NE
+%token AND
+%token OR
+%token POW
 %token WALRUS
 %token EOF
 
@@ -73,7 +77,7 @@ module_entry:
 
 
 rev_def_args:
-  | a = pattern_atom { [a] }
+  | { [] }
   | args = rev_def_args; a = pattern_atom { a :: args }
 
 repl:
@@ -81,6 +85,7 @@ repl:
   | e = expr; EOF { Ast.Repl.Expr e }
   | e = module_entry; EOF { let s, e = e in Ast.Repl.Def (s, e) }
   | s = LOWER_IDENT; WALRUS; e = expr; EOF { Ast.Repl.Def (s, e) }
+  | COLON; c = LOWER_IDENT; s = STRING { Ast.Repl.Cmd (c, s) }
 
 pattern:
   | lbl = UPPER_IDENT; p = pattern_atom { Ast.Pattern.Variant (lbl, p)}
@@ -96,7 +101,7 @@ pattern_atom:
 expr:
   | v = LOWER_IDENT; WALRUS; e = expr_body; SEMICOLON; b = expr { Expr.make_assign v e b }
   | f = function_expr { f }
-  | CASE; e = expr_body; l = rev_case_entries { Expr.make_case e (List.rev l) }
+  | CASE; e = expr_body; COLON; l = rev_case_entries { Expr.make_case e (List.rev l) }
   | e = expr_body { e }
 
 expr_body:
@@ -115,11 +120,18 @@ expr_op_add:
   | a = expr_op_add; PLUS; b = expr_op_mul { Expr.make_bop "+" a b }
   | a = expr_op_add; PLUS_PLUS; b = expr_op_mul { Expr.make_bop "++" a b }
   | a = expr_op_add; MINUS; b = expr_op_mul { Expr.make_bop "-" a b }
+  | a = expr_op_add; OR; b = expr_op_mul { Expr.make_bop "||" a b }
   | e = expr_op_mul { e }
 
 expr_op_mul:
-  | a = expr_op_mul; ASTERISK; b = expr_op_neg { Expr.make_bop "*" a b }
-  | a = expr_op_mul; SLASH; b = expr_op_neg { Expr.make_bop "/" a b }
+  | a = expr_op_mul; ASTERISK; b = expr_op_pow { Expr.make_bop "*" a b }
+  | a = expr_op_mul; SLASH; b = expr_op_pow { Expr.make_bop "/" a b }
+  | a = expr_op_mul; MOD; b = expr_op_pow { Expr.make_bop "%" a b }
+  | a = expr_op_mul; AND; b = expr_op_pow { Expr.make_bop "&&" a b }
+  | e = expr_op_pow { e }
+
+expr_op_pow:
+  | a = expr_op_neg; POW; b = expr_op_pow { Expr.make_bop "**" a b }
   | e = expr_op_neg { e }
 
 expr_op_neg:

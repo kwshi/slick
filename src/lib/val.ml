@@ -82,6 +82,11 @@ and pp_record ppf =
   ++ any "}" )
     ppf
 
+module Make = struct
+  let unit = Record []
+  let bool b = Variant ((if b then "True" else "False"), unit)
+end
+
 module Get = struct
   let record = function Record r -> Some r | _ -> None
 
@@ -91,6 +96,11 @@ module Get = struct
 
   let primitive = function Primitive p -> Some p | _ -> None
 
+  let bool = function
+    | Variant ("True", Record []) -> Some true
+    | Variant ("False", Record []) -> Some false
+    | _ ->None
+
   module Exn = struct
     let record = Option.get_exn % record
 
@@ -99,5 +109,7 @@ module Get = struct
     let variant = Option.get_exn % variant
 
     let primitive = Option.get_exn % primitive
+
+    let bool = Option.get_exn % bool
   end
 end
