@@ -42,7 +42,7 @@ your programs are free of type mismatches.
 
 ```
 slick> \f -> \x -> f (x+1)
-<function> : ∀ α. ((Int -> α) -> (Int -> α))
+<function> : ((Int -> α) -> (Int -> α))
 ```
 
 For pratical purposes, you can ignore the type signatures if your program passes
@@ -58,7 +58,7 @@ like the strict Y combinator.
 
 ```
 slick> \f -> (\x -> f (\v -> (x x) v)) (\x -> f (\v -> (x x) v))
-<function> : ∀ α25. ∀ α26. (((α25 -> α26) -> (α25 -> α26)) -> (α25 -> α26))
+<function> : (((α25 -> α26) -> (α25 -> α26)) -> (α25 -> α26))
 ```
 
 Neat.
@@ -102,6 +102,8 @@ safely separate data into semantic categories.
 ```
 slick> \t -> case t | Seconds s -> s | Minutes m -> 60 * m | Hours h -> 3600 * h
 <function> : (⟦Seconds : Int, Minutes : Int, Hours : Int⟧ -> Int)
+slick> (\t -> case t | Seconds s -> s | Minutes m -> 60 * m | Hours h -> 3600 * h) (Hours 2)
+7200 : Int
 ```
 
 This guarantees before your code is run that `Seconds`, `Minutes`, and `Hours`

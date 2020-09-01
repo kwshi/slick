@@ -65,6 +65,24 @@ _education_ language: it allows programming newcomers to write simple,
 straightforward code (a la Python) while introducing them to the concepts of
 type-safety, _without requiring them to understand types in the first place_.
 
+Here are some more expressions you can try running in the REPL!  See if you can
+guess what they do, and guess what their types are before you run them...
+
+- `\x -> x` (this is a function--what happens if you apply it?  try `(\x -> x) 3`)
+
+- `\x -> (\y -> x)` (what about `(\x -> (\y -> x)) 3`? `((\x -> \y -> x) "hi") 5`?)
+
+- `\{a, b} -> a + b` (what about `\x -> x.a + x.b`?)
+
+- `\x -> case x: | True -> False | False -> True`
+
+- `print "hello world!"`
+
+Read the Slick language reference [here](/docs/language-features.md).
+
+Read about Slick's type system [here](/docs/typing.pdf). This document is mostly
+up-to-date, but there are some recent changes like patterns which aren't in it.
+
 ---
 
 
@@ -75,6 +93,7 @@ Learn how to use Slick in 10 minutes [here](/docs/tutorial.md).
 
 Read more about Slick [here](/docs/about.md).
 
+<<<<<<< HEAD
 Read about Slick's type system [here](/docs/typing.pdf) (note: this document is
 partially out of date, especially for some parts of the system like recursive
 types).

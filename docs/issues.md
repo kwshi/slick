@@ -22,13 +22,6 @@ debug dump of type checking information.
 Expect this to be greatly improved, especially on the type error front (since
 those are typically harder for users to deal with than syntax errors).
 
-## Pattern matching
-
-The only form of "pattern matching" that Slick presently supports is
-destructuring tags in a `case` (but the pattern match must strictly conform to
-the syntax of the tags (see [this issue](#arbitrary-arity-tags))). Our goal is to
-eventually add pattern matching everywhere a variable can occur.
-
 ## Arbitrary-arity tags
 
 Similarly, tags must all take a single argument. This means that `True` is
@@ -43,11 +36,9 @@ slick> def f := \x -> case x | True -> "hi" | False -> "bye"
 
 Ideally the type shown here would be `⟦True, False⟧ -> String`.
 
-Pattern matching would solve the multi-arity issue, since you could pattern
-match on records or tuples. However, there needs to be special treatment for
-tags like `True` and `False`, which ideally take no arguments.
-
 ## Type printing
+
+Types can be formatted nicer.
 
 ### Variable names
 
@@ -110,3 +101,22 @@ inference.
 No tuples exist at present, although records can be used in lieu of them. We
 imagine that we will add tuples which act as a wrapper around records to provide
 a nice user interface for records without labels.
+
+## Case variant closing
+
+We should statically analyze case statements and close up the input variant if
+there are no fallthroughs in a `case`.
+
+E.g. the below should be closed
+
+```
+slick> (\x -> case x | A -> x | B -> x)
+<function> : (⟦ρ47 | B, A⟧ -> ⟦ρ47 | B, A⟧)
+```
+
+but the following is OK
+
+```
+slick> (\x -> case x | A -> x | B -> x | _ -> x)
+<function> : (⟦ρ47 | B, A⟧ -> ⟦ρ47 | B, A⟧)
+```
