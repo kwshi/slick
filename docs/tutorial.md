@@ -240,7 +240,7 @@ why in a little bit.
 You can use Tags by putting them into a `case` statement.
 
 ```
-slick> case True | True -> "it's true"
+slick> case True: | True -> "it's true"
 "it's true" : String
 ```
 
@@ -255,16 +255,16 @@ case True
 ```
 
 ```
-slick> case True | True  -> "it's true" | False -> "it's false"
+slick> case True: | True  -> "it's true" | False -> "it's false"
 “it's true” : String
-slick> case False | True  -> "it's true" | False -> "it's false"
+slick> case False: | True  -> "it's true" | False -> "it's false"
 “it's false” : String
 ```
 
 Did we mention it's type safe?
 
 ```
-slick> case 3 | True  -> "it's true" | False -> "it's false"
+slick> case 3: | True  -> "it's true" | False -> "it's false"
 ! Type error !
 slick> case AnotherTag | True  -> "it's true" | False -> "it's false"
 ! Type error !
@@ -289,13 +289,13 @@ MyNumber 3 : ⟦ρ13 | MyNumber : Int⟧
 
 So we can for example define a safe division function:
 ```
-\d -> \q -> case (q == 0)
+\d -> \q -> case: (q == 0)
   | True  -> DivError
   | False -> DivResult (d / q)
 ```
 
 ```
-slick> \d -> \q -> case (q == 0) | True  -> DivError | False -> DivResult (d / q)
+slick> \d -> \q -> case: (q == 0) | True  -> DivError | False -> DivResult (d / q)
 <function> : (Int -> (Int -> ⟦ρ49 | DivResult : Int, DivError⟧))
 ```
 
