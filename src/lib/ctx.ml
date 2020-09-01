@@ -41,11 +41,14 @@ let over_context f ctx =
   {ctx with context= f ctx.context}
 
 let lookup_var v ctx =
-  List.find_map
+  let results =
+  (* in order to properly implement shadowing, we always want the last occurrence *)
+  List.filter_map
     (function Var (v', tp) when String.(equal v v') -> Some tp | _ -> None)
     ctx.context
-  |> Option.get_lazy (fun () ->
-         failwith @@ "lookup_var unbound var: " ^ v ^ ".")
+  in match List.last_opt results with
+     | None -> failwith @@ "lookup_var unbound var: " ^ v ^ "."
+     | Some tp -> tp
 
 (* TODO change to free_evars or row_evars over a type *)
 let free_evars ctx =
