@@ -24,6 +24,11 @@ let rec repl (sc, ctx) : unit =
     ( Slick.Eval.evaluate sc expr
     , expr.Slick.Ast.Expr.tp )
   in
+  let eval_def s e : Slick.Value.t * Slick.Type.t =
+    let expr, _ = Slick.Typing.infer_def ctx s e in
+    ( Slick.Eval.evaluate sc expr
+    , expr.Slick.Ast.Expr.tp )
+  in
   match LNoise.linenoise "slick> " with
   | None ->
     let open Fmt in
@@ -50,7 +55,7 @@ let rec repl (sc, ctx) : unit =
         ; repl (sc, ctx)
             
         | Slick.Ast.Repl.Def (s, e) ->
-          let v, t = eval e in
+          let v, t = eval_def s e in
           pp Fmt.stdout @@ (v, t)
         ; repl
             (Slick.Scope.add s v sc

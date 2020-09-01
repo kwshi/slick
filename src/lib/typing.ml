@@ -303,13 +303,25 @@ let over_forall_row_evar ctx (fn : Ctx.t -> Type.t -> 'a) (tv, forall_inner) =
 
 (* INFERENCE and CHECKING *)
 
-let rec infer_top ctx annotated =
+let close_expr ctx annotated =
+  (* may want to clean up the context in this step if we plan to reuse it*)
+  let resolved = Ctx.apply_ctx_expr ctx annotated in
+  (* print_tp resolved.tp; *)
+  {resolved with tp= quantify_all_free_evars ctx resolved.tp}
+
+let rec infer_def ctx def_name annotated =
+  let ev_tp, ev_ce, _, ctx' = Ctx.fresh_evar ctx in
+  let marker = Ctx.Marker ev_ce in
+  let def_ctx = Ctx.append_ctx [marker; ev_ce; Ctx.Var (def_name, ev_tp)] ctx' in
+  let inferred_body, new_ctx = check def_ctx annotated ev_tp in
+  let closed_body = close_expr new_ctx inferred_body in
+  (closed_body, Ctx.drop_ctx_from marker new_ctx)
+
+and infer_top ctx annotated =
   let inferred, new_ctx = infer ctx annotated in
   (* print_tp inferred.tp;
    * print_ctx new_ctx; *)
-  let resolved = Ctx.apply_ctx_expr new_ctx inferred in
-  (* print_tp resolved.tp; *)
-  ({resolved with tp= quantify_all_free_evars new_ctx resolved.tp}, new_ctx)
+  (close_expr new_ctx inferred, new_ctx)
 
 and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
   (* print_string "infer:\n";
