@@ -46,7 +46,7 @@ Here's what happens when we run it in a REPL.
 
 ```
 slick> \x -> x
-<function> : ∀ α10. (α10 -> α10)
+<function> : α10 -> α10
 ```
 
 Let's address what the output means, because it is a little strange.
@@ -55,18 +55,17 @@ First, the value Slick reports for the function `\x -> x` is simply
 `<function>`. That's because we can't print the description of all functions, so
 we don't bother even for the functions we could print (like `\x -> x`).
 
-Second, the type assigned to the function is `∀ α10. (α10 -> α10)`. If you
+Second, the type assigned to the function is `α10 -> α10`. If you
 aren't familiar with other functional programming languages like Haskell or
 OCaml, this will seem intimidating. Let's break it down, piece-by-piece.
 
-`∀ α10`. This is read as "for all `α10`". The `α10` is known as a type variable.
-Its number is nothing special, it's just a unique identifier so if we have
-multiple type variables (like `α10` and `α11`) we can differentiate them. Type
-variables are like regular variables in a program, except their values range
-over _types_. So `α10` could take on the value `String` or `Int`.
+`α10`. The `α10` is known as a type variable. Its number is nothing special,
+it's just a unique identifier so if we have multiple type variables (like `α10`
+and `α11`) we can differentiate them. Type variables are like regular variables
+in a program, except their values range over _types_. So `α10` could take on the
+value `String` or `Int`.
 
-Putting this together, what this means is that in the type `∀ α10. (α10 -> α10)`,
-`α10` can be any type.
+This means is that in the type `α10 -> α10`, `α10` can be any type.
 
 `(α10 -> α10)`. This is where things get especially wonky. That arrow indicates
 a function. The left side of the arrow is its input and the right side is its
@@ -74,6 +73,16 @@ output. So `\x -> x` takes a value of type `α10` and gives back a value of the
 same type.
 
 That makes sense, since `\x -> x` simply returns its input unchanged!
+
+## Naming functions
+
+You can define named functions using `def`. This defines a function bound to `f`
+that functions just like `\x -> x`.
+
+```
+slick> def f x: x
+<function> : α14 -> α14
+```
 
 ## Applying our knowledge of functions
 
@@ -100,7 +109,7 @@ Since `\x -> x` can take in any type, why don't we try applying it to itself?
 
 ```
 slick> (\x -> x) (\x -> x)
-<function> : ∀ α16. (α16 -> α16)
+<function> : α16 -> α16
 ```
 
 Well, the output has the same type, so it seems like it should be the same
@@ -116,23 +125,22 @@ interesting functions?
 Let's take a look at
 
 ```
-\x -> \y -> x
+slick> def f x y: x
+<function> : α14 -> (α21 -> α14)
 ```
 
-This syntax looks a little weird, but it defines a function that takes two
-arguments, `x`, and `y`. It returns only `x`. Remember, this is an anonymous
-function, so its body is simply an expression that evaluated to a value.
+This defines a function that takes two arguments, `x`, and `y`. It returns only
+`x`. 
 
 Here's how we give multiple arguments
 
 ```
-slick> (\x -> \y -> x) 1 2
+slick> f 1 2
 1 : Int
 ```
 
 This might seem a little weird to you, especially the syntax for defnining the
-function. Fortunately, there's a simpler way to take multiple arguments in
-Slick!
+function. Fortunately, there's another way to take multiple arguments in Slick!
 
 ## Introducing: records
 
@@ -201,50 +209,100 @@ slick> 12
 12 : Int
 ```
 
-You can do operations on `Int`s using the following functions:
+You can do operations on `Int`s using the expected functions
 
-```
-int_add : {a : Int, b : Int} -> Int
-int_sub : {a : Int, b : Int} -> Int
-int_mul : {a : Int, b : Int} -> Int
-int_div : {a : Int, b : Int} -> Int
-int_neg : Int -> Int
-```
-
-The `{a : Int, b : Int}` syntax means that it takes in a record as input. More
-on those later. What you need to know is that you specify the input as
-`{a=1,b=2}`, i.e. the first argument is bound to `a` and the second to `b`. This
-syntax will also be made nicer in the future.
-
-```
-slick> int_add {a=5,b=6}
-11 : Int
-```
-
-You can do comparisons on `Int`s using the following functions:
-
-```
-int_le : {a : Int, b : Int} -> ⟦True : {}, False : {}⟧
-int_ge : {a : Int, b : Int} -> ⟦True : {}, False : {}⟧
-int_lt : {a : Int, b : Int} -> ⟦True : {}, False : {}⟧
-int_gt : {a : Int, b : Int} -> ⟦True : {}, False : {}⟧
-int_eq : {a : Int, b : Int} -> ⟦True : {}, False : {}⟧
-```
-
-The `⟦True : {}, False : {}⟧` means that the function will return `True {}` or
-`False {}`. We'll discuss tags later, but for all intents and purposes this
-means it returns a boolean. This syntax (specifically the `True {}` syntax) will
-be made much nicer in the future.
-
-```
-slick> int_eq {a=3,b=4}
-False {} : ⟦True : {}, False : {}⟧
-```
 
 ## Other base types
 
-Slick supports only `Int` and `String` right now (and bindings to `String` are
-less complete than those to `Int`). However, that doesn't mean Slick is wholly
+Slick supports only `Int` and `String` right now. However, that doesn't mean Slick is wholly
 unusable, as you can make ad-hoc types very easily.
 
 ## Tags
+
+Slick lets you create Tags by writing an identifier that starts with a capital letter. Like this
+
+```
+slick> True
+True : ⟦ρ13 | True⟧
+```
+
+You can think of Tags as ways of separating data into disjoint catagories. The
+`ρ13` is another kind of type variable that stands for a set of other Tags. You
+can read the type signature as saying "the Tag `True` is part of a set of tags
+that at least contains `True`." This is a little unhelpful.
+
+You might think, knowing that `True` often inhabits a type known as "Bool" or
+"Boolean" in other languages, "why isn't `True` part of a set of tags containing
+`True` and `False`?" This is a very reasonable question, but the answer is an
+interesting feature of Slick: there is no pre-defined Boolean type! We'll see
+why in a little bit.
+
+You can use Tags by putting them into a `case` statement.
+
+```
+slick> case True | True -> "it's true"
+"it's true" : String
+```
+
+This isn't very helpful. But we can make our `case` more general by adding more
+branches. This is easier to read on multiple lines, but we'll include a version
+fit for the REPL below that.
+
+```
+case True
+  | True  -> "it's true"
+  | False -> "it's false"
+```
+
+```
+slick> case True | True  -> "it's true" | False -> "it's false"
+“it's true” : String
+slick> case False | True  -> "it's true" | False -> "it's false"
+“it's false” : String
+```
+
+Did we mention it's type safe?
+
+```
+slick> case 3 | True  -> "it's true" | False -> "it's false"
+! Type error !
+slick> case AnotherTag | True  -> "it's true" | False -> "it's false"
+! Type error !
+```
+
+Going back to what we said earlier, the choice of `True` and `False` is only by convention!
+
+```
+slick> 1 == 3
+False : ⟦True, False⟧
+```
+
+This could be `Banana : ⟦Apple, Banana⟧` -- what matters is that when we use
+functions like `==`, we respect their types.
+
+Tags can also tag data, rather than be used alone, like in
+
+```
+slick> MyNumber 3
+MyNumber 3 : ⟦ρ13 | MyNumber : Int⟧
+```
+
+So we can for example define a safe division function:
+```
+\d -> \q -> case (q == 0)
+  | True  -> DivError
+  | False -> DivResult (d / q)
+```
+
+```
+slick> \d -> \q -> case (q == 0) | True  -> DivError | False -> DivResult (d / q)
+<function> : (Int -> (Int -> ⟦ρ49 | DivResult : Int, DivError⟧))
+```
+
+It "rejects" invalid inputs by returning the tag `DivError` and returns the
+result wrapped in the `DivResult` tag.
+
+## Fin
+
+You now know enough to be dangerous with Slick! There are a few more features
+not covered here. Check out the [language documentation here](/docs/language-features.md)

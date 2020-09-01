@@ -5,6 +5,7 @@ Learn how to use Slick in 10 minutes [here](/docs/tutorial.md).
 
 Read more about Slick [here](/docs/about.md).
 
-Read about Slick's type system [here](/docs/typing.pdf) (note: this document is
-partially out of date, especially for some parts of the system like recursive
-types).
+Read the Slick language reference [here](/docs/language-features.md).
+
+Read about Slick's type system [here](/docs/typing.pdf). This document is mostly
+up-to-date, but there are some recent changes like patterns which aren't in it.
