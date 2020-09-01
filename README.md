@@ -30,8 +30,8 @@ to show you what Slick code looks like.  Try running the following:
 
 ## Slick quick links
 
-* Learn about Slick in more detail [below](#slick-in-a-nutshell) and
-  [here](/docs/about.md).
+* Read a quick overview of Slick [below](#slick-in-a-nutshell) and
+  a slightly more detailed one [here](/docs/about.md).
 
 * To learn how to use Slick, check out our 10-minute tutorial
   [here](/docs/tutorial.md).
