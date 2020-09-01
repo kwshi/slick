@@ -17,15 +17,7 @@ let main =
     let ch = open_in s in
     Lexing.from_channel ch
     |> Slick.Parser.module_ Slick.Lexer.read
-    |> List.fold_left
-      (fun (m, sc, ctx) (s, e) ->
-         let t, _ = Slick.Typing.infer_top ctx e in
-         let v = Slick.Eval.evaluate sc e in
-         Slick.Scope.add s (v, t) m
-       , Slick.Scope.add s v sc
-       , Slick.Context.(append_ctx [Var (s, t.tp)] ctx)
-      )
-      (Slick.Scope.empty, Slick.Builtin.scope, Slick.Builtin.ctx)
+    |> Slick.Module.eval
     |> ignore
   ; close_in ch
       

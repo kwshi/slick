@@ -8,3 +8,5 @@ module Lexer = Lexer
 module Value = Val
 module Type = Type
 module Context = Ctx
+module Module = Module
+module Prelude = Prelude

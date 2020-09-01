@@ -11,13 +11,13 @@ let pp =
   ++ const Format.pp_print_newline ()
 
 
-let rec repl sc ctx : unit =
+let rec repl (sc, ctx) : unit =
   let err pp = 
     let open Fmt in
     (styled (`Fg (`Hi `Red)) (hovbox pp)
      ++ Format.pp_print_newline
     ) stderr ()
-  ; repl sc ctx 
+  ; repl (sc, ctx) 
   in
   let eval e : Slick.Value.t * Slick.Type.t =
     let expr, _ = Slick.Typing.infer_top ctx e in
@@ -34,7 +34,7 @@ let rec repl sc ctx : unit =
     ( styled (`Fg (`Hi `Magenta)) (any "[interrupted]")
       ++ Format.pp_print_newline )
       stderr ()
-  ; repl sc ctx
+  ; repl (sc, ctx)
 
   | Some input -> (
       LNoise.history_add input |> ignore ;
@@ -43,18 +43,18 @@ let rec repl sc ctx : unit =
         |> Slick.Parser.repl Slick.Lexer.read 
         |> function
         | Slick.Ast.Repl.Empty ->
-          repl sc ctx
+          repl (sc, ctx)
             
         | Slick.Ast.Repl.Expr e ->
           pp Fmt.stdout @@ eval e
-        ; repl sc ctx
+        ; repl (sc, ctx)
             
         | Slick.Ast.Repl.Def (s, e) ->
           let v, t = eval e in
           pp Fmt.stdout @@ (v, t)
         ; repl
-            (Slick.Scope.add s v sc)
-            (Slick.Context.append_ctx [Slick.Context.Var (s, t)] ctx)
+            (Slick.Scope.add s v sc
+            ,Slick.Context.append_ctx [Slick.Context.Var (s, t)] ctx)
             
       with
       | Slick.Ast.SyntaxError s ->
@@ -73,5 +73,5 @@ let repl () =
   LNoise.catch_break true ;
   LNoise.set_multiline true ;
   Logo.pp Fmt.stderr () ;
-  repl Slick.Builtin.scope Slick.Builtin.ctx
+  repl Slick.Prelude.prelude
     
