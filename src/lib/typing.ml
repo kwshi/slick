@@ -189,69 +189,16 @@ let substitute_row tv ~replace_with =
 
 (* could take a list as input to avoid multiple traversals *)
 let substitute_evar ev ~replace_with =
-  let rec go = function
-    | Type.Record r ->
-        Type.Record (Pair.map1 (List.map @@ Pair.map2 go) r)
-    | Type.Variant r ->
-        Type.Variant (Pair.map1 (List.map @@ Pair.map2 go) r)
-    | Type.Function (t1, t2) ->
-        Type.Function (go t1, go t2)
-    | Type.EVar ev' ->
-        if Int.(ev' = ev) then replace_with else Type.EVar ev'
-    | Type.TVar tv ->
-        Type.TVar tv
-    | Type.Forall (tv, tp) ->
-        (* It's probably OK since we make unique identifiers, but we probably
-           should check if we're replacing with a TVar and avoid going into the
-           body of the Forall if the TVars match. *)
-        Type.Forall (tv, go tp)
-    | Type.ForallRow (tv, tp) ->
-        (* See above *)
-        Type.ForallRow (tv, go tp)
-    | Type.Mu (tv, tp) ->
-        (* See above *)
-        Type.Mu (tv, go tp)
-    | Type.Primitive p ->
-        Type.Primitive p
-  in
-  go
+  Type.rmap @@
+  function
+  | Type.EVar ev' when Int.equal ev ev' -> Some replace_with
+  | _ -> None
 
 let substitute_row_evar ev ~replace_with =
-  let rec go =
-    let subst_row (r,rt) =
-        let rt' =
-          match rt with
-          | Some (Type.Tail_evar ev') when Int.(equal ev' ev) ->
-              Some replace_with
-          | rt -> rt
- in
-        ((List.map @@ Pair.map2 go) r, rt') in
-    function
-    | Type.Record r ->
-        Type.Record (subst_row r)
-    | Type.Variant r ->
-        Type.Variant (subst_row r)
-    | Type.Function (t1, t2) ->
-        Type.Function (go t1, go t2)
-    | Type.EVar ev' ->
-        Type.EVar ev'
-    | Type.TVar tv ->
-        Type.TVar tv
-    | Type.Forall (tv, tp) ->
-        (* It's probably OK since we make unique identifiers, but we probably
-           should check if we're replacing with a TVar and avoid going into the
-           body of the Forall if the TVars match. *)
-        Type.Forall (tv, go tp)
-    | Type.ForallRow (tv, tp) ->
-        (* See above *)
-        Type.ForallRow (tv, go tp)
-    | Type.Mu (tv, tp) ->
-        (* See above *)
-        Type.Mu (tv, go tp)
-    | Type.Primitive p ->
-        Type.Primitive p
-  in
-  go
+  Type.map_tail @@
+  function
+  | Type.Tail_evar ev' when Int.equal ev ev' -> replace_with
+  | tl -> tl
 
 let unfold_mu (tv, mu_inner) : Type.t =
   let tp = Type.Mu (tv, mu_inner) in

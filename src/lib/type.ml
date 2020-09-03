@@ -94,3 +94,31 @@ and pp_variant_entry ppf (l, t) =
   ) ppf ()
   
 
+let rmap f =
+  let rec go t =
+    match f t with
+    | Some t' -> t'
+    | None ->
+      match t with
+      | Record r -> Record (row r)
+      | Variant r -> Variant (row r)
+      | Function (a, b) -> Function (go a, go b)
+      | EVar ev -> EVar ev
+      | TVar tv -> TVar tv
+      | Forall (v, t) -> Forall (v, go t)
+      | ForallRow (v, t) -> ForallRow (v, go t)
+      | Mu (v, t) -> Mu (v, go t)
+      | Primitive p -> Primitive p
+  and row (es, tl) =
+    (List.map (Pair.map2 go) es, tl)
+  in
+  go
+          
+let map_tail f =
+  let row = Pair.map2 (Option.map f) in
+  rmap
+    (function
+      | Record r -> Some (Record (row r))
+      | Variant r -> Some (Variant (row r))
+      | _ -> None
+    )
