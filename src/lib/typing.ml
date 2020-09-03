@@ -128,29 +128,21 @@ let occurs_check ev =
    traverses the type tp and replaces all instances of TVar tv with replace_tp.
 *)
 let substitute tv ~replace_with =
-  let rec go = function
-    | Type.Record r ->
-        Type.Record (Pair.map1 (List.map @@ Pair.map2 go) r)
-    | Type.Variant r ->
-        Type.Variant (Pair.map1 (List.map @@ Pair.map2 go) r)
-    | Type.Function (t1, t2) ->
-        Type.Function (go t1, go t2)
-    | Type.EVar ev ->
-        Type.EVar ev
-    | Type.TVar tv' ->
-        if String.(equal tv tv') then replace_with else Type.TVar tv'
-    | Type.Forall (tv', tp) ->
-        if String.(equal tv tv') then Type.Forall (tv', tp)
-        else Type.Forall (tv', go tp)
-    | Type.ForallRow (tv', tp) ->
-        if String.(equal tv tv') then Type.ForallRow (tv', tp)
-        else Type.ForallRow (tv', go tp)
-    | Type.Mu (tv', tp) ->
-        if String.(equal tv tv') then Type.Mu (tv', tp) else Type.Mu (tv', go tp)
-    | Type.Primitive p ->
-        Type.Primitive p
-  in
-  go
+  Type.rmap
+    (function
+      | Type.TVar tv' when String.equal tv tv' -> Some replace_with
+
+      (* TODO: I don't understand this bit.  Why does substitution stop when
+         tv = tv'?  Is it needed? *)
+      | (Type.Forall (tv', _)
+         | Type.ForallRow (tv', _)
+         | Type.Mu (tv', _)
+          )
+        as t
+        when String.equal tv tv' -> Some t
+      | _ -> None
+    )
+
 
 let substitute_row tv ~replace_with =
   let rec go =
