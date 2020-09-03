@@ -95,8 +95,9 @@ and pp_variant_entry ppf (l, t) =
   
 
 let rmap f =
-  let rec go t =
-    match f t with
+  let rec f' t = f ~go t
+  and go t =
+    match f' t with
     | Some t' -> t'
     | None ->
       match t with
@@ -115,10 +116,12 @@ let rmap f =
   go
           
 let map_tail f =
-  let row = Pair.map2 (Option.map f) in
+  let row go (r, t) = (List.map (Pair.map2 go) r, Option.map f t) in
   rmap
-    (function
-      | Record r -> Some (Record (row r))
-      | Variant r -> Some (Variant (row r))
-      | _ -> None
+    (fun ~go ->
+       let row = row go in
+       function
+       | Record r -> Some (Record (row r))
+       | Variant r -> Some (Variant (row r))
+       | _ -> None
     )

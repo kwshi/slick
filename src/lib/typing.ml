@@ -128,60 +128,49 @@ let occurs_check ev =
    traverses the type tp and replaces all instances of TVar tv with replace_tp.
 *)
 let substitute tv ~replace_with =
-  Type.rmap
-    (function
-      | Type.TVar tv' when String.equal tv tv' -> Some replace_with
-
-      (* TODO: I don't understand this bit.  Why does substitution stop when
+  Type.rmap @@
+  fun ~go:_ ->
+  function
+  | Type.TVar tv' when String.equal tv tv' -> Some replace_with
+                                                
+  (* TODO: I don't understand this bit.  Why does substitution stop when
          tv = tv'?  Is it needed? *)
-      | (Type.Forall (tv', _)
-         | Type.ForallRow (tv', _)
-         | Type.Mu (tv', _)
-          )
-        as t
-        when String.equal tv tv' -> Some t
-      | _ -> None
+  | (Type.Forall (tv', _)
+    | Type.ForallRow (tv', _)
+    | Type.Mu (tv', _)
     )
+    as t
+    when String.equal tv tv' -> Some t
+  | _ -> None
 
 
 let substitute_row tv ~replace_with =
-  let rec go =
-    let substitute_row (r,rt) =
-          let rt' =
-            match rt with
-            | Some (Type.Tail_tvar tv') when String.(equal tv' tv) ->
-                Some replace_with
-            | rt ->
-                rt
-          in
-          ((List.map @@ Pair.map2 go) r, rt') in
-    function
-    | Type.Record r ->
-        Type.Record (substitute_row r)
-    | Type.Variant r ->
-        Type.Variant (substitute_row r)
-    | Type.Function (t1, t2) ->
-        Type.Function (go t1, go t2)
-    | Type.EVar ev ->
-        Type.EVar ev
-    | Type.TVar tv' ->
-        Type.TVar tv'
-    | Type.Forall (tv', tp) ->
-        if String.(equal tv tv') then Type.Forall (tv', tp)
-        else Type.Forall (tv', go tp)
-    | Type.ForallRow (tv', tp) ->
-        if String.(equal tv tv') then Type.ForallRow (tv', tp)
-        else Type.ForallRow (tv', go tp)
-    | Type.Mu (tv', tp) ->
-        if String.(equal tv tv') then Type.Mu (tv', tp) else Type.Mu (tv', go tp)
-    | Type.Primitive p ->
-        Type.Primitive p
+  let row go (r, t) =
+    (List.map (Pair.map2 go) r,
+     match t with
+     | Some (Type.Tail_tvar tv') when String.equal tv tv' -> Some replace_with
+     | _ -> t
+    )
   in
-  go
+  Type.rmap @@
+  fun ~go ->
+  let row = row go in
+  function
+  | Type.Record r -> Some (Record (row r))
+  | Type.Variant r -> Some (Variant (row r))
+
+  (* TODO: similarly I don't understand this.  *)
+  | (Type.Forall (tv', _)
+    | Type.ForallRow (tv', _)
+    | Type.Mu (tv', _))
+    as t when String.equal tv tv' ->
+    Some t
+  | _ -> None
 
 (* could take a list as input to avoid multiple traversals *)
 let substitute_evar ev ~replace_with =
   Type.rmap @@
+  fun ~go:_ ->
   function
   | Type.EVar ev' when Int.equal ev ev' -> Some replace_with
   | _ -> None
