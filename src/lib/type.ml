@@ -114,6 +114,22 @@ let rmap f =
     (List.map (Pair.map2 go) es, tl)
   in
   go
+
+let fold f =
+  let rec go acc t =
+    let acc' = f acc t in
+    match t with
+    | Record (es, _) | Variant (es, _) ->
+      List.fold_left (fun a (_, t) -> f a t) acc' es
+    | Function (a, b) ->
+      go (go acc' a) b
+    | Forall (_, t) | ForallRow (_, t) | Mu (_, t) ->
+      go acc' t
+    | EVar _ | TVar _ | Primitive _ ->
+      acc'
+  in go
+
+    
           
 let map_tail f =
   let row go (r, t) = (List.map (Pair.map2 go) r, Option.map f t) in
