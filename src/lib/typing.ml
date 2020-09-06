@@ -132,9 +132,7 @@ let substitute tv ~replace_with =
   fun ~go:_ ->
   function
   | Type.TVar tv' when String.equal tv tv' -> Some replace_with
-                                                
-  (* TODO: I don't understand this bit.  Why does substitution stop when
-         tv = tv'?  Is it needed? *)
+  (* Do not substitute bound variables *)
   | (Type.Forall (tv', _)
     | Type.ForallRow (tv', _)
     | Type.Mu (tv', _)
@@ -158,8 +156,7 @@ let substitute_row tv ~replace_with =
   function
   | Type.Record r -> Some (Record (row r))
   | Type.Variant r -> Some (Variant (row r))
-
-  (* TODO: similarly I don't understand this.  *)
+  (* Do not substitute bound variables *)
   | (Type.Forall (tv', _)
     | Type.ForallRow (tv', _)
     | Type.Mu (tv', _))
@@ -211,23 +208,24 @@ let quantify_row (row_evars : int list) (tp : Type.t) : Type.t =
 (* quantifies both row and type evars *)
 
 let quantify_all_free_evars ctx tp =
+  (* TODO intersect this with the free_evars in 'tp' *)
   let fvs = Ctx.free_evars ctx in
   let row_fvs = Ctx.free_row_evars ctx in
   quantify_row row_fvs @@ quantify fvs tp
 
 let over_forall_evar ctx (fn : Ctx.t -> Type.t -> 'a) (tv, forall_inner) =
-  let ev_tp, ev_ce, _, ctx' = Ctx.fresh_evar ctx in
-  let subst_ctx = Ctx.append_ctx [ev_ce] ctx' in
+  let ev_tp, ev_ce, _, ctx = Ctx.fresh_evar ctx in
+  let ctx = Ctx.append_ctx [ev_ce] ctx in
   let subst_forall_inner = substitute tv ~replace_with:ev_tp forall_inner in
-  fn subst_ctx subst_forall_inner
+  fn ctx subst_forall_inner
 
 let over_forall_row_evar ctx (fn : Ctx.t -> Type.t -> 'a) (tv, forall_inner) =
-  let ev_tail, ev_ce, _, ctx' = Ctx.fresh_row_evar ctx in
-  let subst_ctx = Ctx.append_ctx [ev_ce] ctx' in
+  let ev_tail, ev_ce, _, ctx = Ctx.fresh_row_evar ctx in
+  let _ctx = Ctx.append_ctx [ev_ce] ctx in
   let subst_forall_inner =
     substitute_row tv ~replace_with:ev_tail forall_inner
   in
-  fn subst_ctx subst_forall_inner
+  fn ctx subst_forall_inner
 
 (* INFERENCE and CHECKING *)
 
@@ -238,18 +236,18 @@ let close_expr ctx annotated =
   {resolved with tp= quantify_all_free_evars ctx resolved.tp}
 
 let rec infer_def ctx def_name annotated =
-  let ev_tp, ev_ce, _, ctx' = Ctx.fresh_evar ctx in
+  let ev_tp, ev_ce, _, ctx = Ctx.fresh_evar ctx in
   let marker = Ctx.Marker ev_ce in
-  let def_ctx = Ctx.append_ctx [marker; ev_ce; Ctx.Var (def_name, ev_tp)] ctx' in
-  let inferred_body, new_ctx = check def_ctx annotated ev_tp in
-  let closed_body = close_expr new_ctx inferred_body in
-  (closed_body, Ctx.drop_ctx_from marker new_ctx)
+  let ctx = Ctx.append_ctx [marker; ev_ce; Ctx.Var (def_name, ev_tp)] ctx in
+  let inferred_body, ctx = check ctx annotated ev_tp in
+  let closed_body = close_expr ctx inferred_body in
+  (closed_body, Ctx.drop_ctx_from marker ctx)
 
 and infer_top ctx annotated =
-  let inferred, new_ctx = infer ctx annotated in
+  let inferred, ctx = infer ctx annotated in
   (* print_tp inferred.tp;
-   * print_ctx new_ctx; *)
-  (close_expr new_ctx inferred, new_ctx)
+   * print_ctx ctx; *)
+  (close_expr ctx inferred, ctx)
 
 and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
   (* print_string "infer:\n";
@@ -261,11 +259,11 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
       ({Ast.Expr.expr= Var v; tp}, ctx)
   (* RcdI => *)
   | Ast.Expr.Record r ->
-      let new_ctx, inferred_rcd =
+      let ctx, inferred_rcd =
         List.fold_map
           (fun ctx (label, e) ->
-            let inferred_e, new_ctx = infer ctx e in
-            (new_ctx, (label, inferred_e)))
+            let inferred_e, ctx = infer ctx e in
+            (ctx, (label, inferred_e)))
           ctx r
       in
       ( { expr= Record inferred_rcd
@@ -273,21 +271,21 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
             Record
               (List.map (Pair.map2 (fun e -> e.Ast.Expr.tp)) inferred_rcd, None)
         }
-      , new_ctx )
+      , ctx )
   (* ->I => *)
   | Ast.Expr.Function (pat, e) ->
-      let arg_ev_tp, arg_ev_ce, _, ctx' = Ctx.fresh_evar ctx in
-      let ret_ev_tp, ret_ev_ce, _, ctx'' = Ctx.fresh_evar ctx' in
+      let arg_ev_tp, arg_ev_ce, _, ctx = Ctx.fresh_evar ctx in
+      let ret_ev_tp, ret_ev_ce, _, ctx = Ctx.fresh_evar ctx in
       let marker = Ctx.Marker arg_ev_ce in
-      let pat_ctx =
+      let ctx =
         Ctx.append_ctx
           [marker; arg_ev_ce; ret_ev_ce]
-          ctx''
+          ctx
       in
-      let fun_ctx = check_pat pat_ctx pat arg_ev_tp in
-      let e_checked, new_ctx = check fun_ctx e ret_ev_tp in
+      let ctx = check_pat ctx pat arg_ev_tp in
+      let e_checked, ctx = check ctx e ret_ev_tp in
       let fun_expr =
-        Ctx.apply_ctx_expr new_ctx
+        Ctx.apply_ctx_expr ctx
           { Ast.Expr.expr= Ast.Expr.Function (pat, e_checked)
           ; Ast.Expr.tp= Type.Function (arg_ev_tp, ret_ev_tp) }
       in
@@ -295,73 +293,68 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
         { fun_expr with
           tp=
             quantify_all_free_evars
-              (Ctx.get_ctx_after marker new_ctx)
+              (Ctx.get_ctx_after marker ctx)
               fun_expr.tp }
       in
       (* print_debug "infer function: ";
        * print_tp fun_expr.tp;
-       * print_ctx new_ctx;
+       * print_ctx ctx;
        * print_tp quantified_fun_expr.tp; *)
-      (quantified_fun_expr, Ctx.drop_ctx_from marker new_ctx)
+      (quantified_fun_expr, Ctx.drop_ctx_from marker ctx)
   (* ->E *)
   | Ast.Expr.Application (e1, e2) ->
-      let e1_inferred, new_ctx = infer ctx e1 in
-      let e1_inferred' = Ctx.apply_ctx_expr new_ctx e1_inferred in
+      let e1_inferred, ctx = infer ctx e1 in
+      let e1_inferred' = Ctx.apply_ctx_expr ctx e1_inferred in
       (* print_debug "infer app: ";
        * print_tp e1_inferred'.tp;
-       * print_ctx new_ctx; *)
-      let e2_inferred, output_tp, new_ctx' =
-        infer_app new_ctx e1_inferred'.tp e2
+       * print_ctx ctx; *)
+      let e2_inferred, output_tp, ctx =
+        infer_app ctx e1_inferred'.tp e2
       in
-      ({expr= Application (e1_inferred', e2_inferred); tp= output_tp}, new_ctx')
+      ({expr= Application (e1_inferred', e2_inferred); tp= output_tp}, ctx)
   | Ast.Expr.Bop (o, a, b) ->
       (* We probably should just desugar this to two applications and never have a Bop in the AST *)
       let t = Ctx.lookup_var o ctx in
-      let a', t', ctx' = infer_app ctx t a in
-      let b', t'', ctx'' = infer_app ctx' (Ctx.apply_ctx ctx' t') b in
-      (* DO I NEED AN APPLY_CTX_EXPR HERE *)
-      (* let a'' = Ctx.apply_ctx_expr ctx' a' in *)
-      (* print_debug "infer app: ";
-       * print_tp e1_inferred'.tp;
-       * print_ctx new_ctx; *)
-      (* let b', tp, ctx'' = infer_app ctx' a''.tp b in *)
-      ({expr= Bop (o, a', b'); tp = t''}, ctx'')
+      let a', t', ctx = infer_app ctx t a in
+      let b', t'', ctx = infer_app ctx (Ctx.apply_ctx ctx t') b in
+      (* let b', tp, ctx'' = infer_app ctx a''.tp b in *)
+      ({expr= Bop (o, a', b'); tp = t''}, ctx)
   | Ast.Expr.Uop (o, a) ->
       let t = Ctx.lookup_var o ctx in
       let a', t', ctx' = infer_app ctx t a in
       ({expr= Uop(o, a'); tp = t'}, ctx')
   | Ast.Expr.Variant (lbl, e) ->
-      let e_inferred, new_ctx = infer ctx e in
-      let e_inferred' = Ctx.apply_ctx_expr new_ctx e_inferred in
-      let open_tail, open_tail_ce, _, tail_ctx = Ctx.fresh_row_evar new_ctx in
-      let ctx' = Ctx.append_ctx [open_tail_ce] tail_ctx in
-      ({expr = Ast.Expr.Variant (lbl, e_inferred'); tp = Type.Variant ([(lbl, e_inferred'.tp)],Some open_tail)}, ctx')
+      let e_inferred, ctx = infer ctx e in
+      let e_inferred' = Ctx.apply_ctx_expr ctx e_inferred in
+      let open_tail, open_tail_ce, _, ctx = Ctx.fresh_row_evar ctx in
+      let ctx = Ctx.append_ctx [open_tail_ce] ctx in
+      ({expr = Ast.Expr.Variant (lbl, e_inferred'); tp = Type.Variant ([(lbl, e_inferred'.tp)],Some open_tail)}, ctx)
   | Ast.Expr.Assign (var, e1, e2) ->
       (* TODO for assignments that involve updates: check if var is in the context. if it is, check e1 against its type. otherwise, infer the type of e1 - and use that as var's assignment. *)
-      let e1_inferred, new_ctx = infer ctx e1 in
-      let e1_inferred' = Ctx.apply_ctx_expr new_ctx e1_inferred in
+      let e1_inferred, ctx = infer ctx e1 in
+      let e1_inferred' = Ctx.apply_ctx_expr ctx e1_inferred in
       let var_assignment = Ctx.Var (var, e1_inferred'.tp) in
-      let assign_ctx =
-        Ctx.append_ctx [var_assignment] new_ctx
+      let ctx =
+        Ctx.append_ctx [var_assignment] ctx
       in
-      let e2_inferred, new_ctx' = infer assign_ctx e2 in
+      let e2_inferred, ctx = infer ctx e2 in
       ( { expr= Ast.Expr.Assign (var, e1_inferred', e2_inferred)
         ; tp= e2_inferred.tp }
-      , Ctx.drop_ctx_from var_assignment new_ctx' )
+      , Ctx.drop_ctx_from var_assignment ctx )
   | Ast.Expr.Projection (e, lbl) ->
-      let e_inferred, new_ctx = infer ctx e in
-      let e_inferred' = Ctx.apply_ctx_expr new_ctx e_inferred in
-      let proj_tp, proj_ctx = infer_proj new_ctx e_inferred'.tp lbl in
-      ({expr= Ast.Expr.Projection (e_inferred', lbl); tp= proj_tp}, proj_ctx)
+      let e_inferred, ctx = infer ctx e in
+      let e_inferred' = Ctx.apply_ctx_expr ctx e_inferred in
+      let proj_tp, ctx = infer_proj ctx e_inferred'.tp lbl in
+      ({expr= Ast.Expr.Projection (e_inferred', lbl); tp= proj_tp}, ctx)
   | Ast.Expr.Extension (lbl, e1, e2) ->
-      let e1_inferred, new_ctx = infer ctx e1 in
-      let e2_inferred, new_ctx' = infer new_ctx e2 in
-      let e2_inferred' = Ctx.apply_ctx_expr new_ctx' e2_inferred in
-      let ext_tp, ext_ctx =
-        infer_ext new_ctx' (lbl, e1_inferred.tp) e2_inferred'.tp
+      let e1_inferred, ctx = infer ctx e1 in
+      let e2_inferred, ctx = infer ctx e2 in
+      let e2_inferred' = Ctx.apply_ctx_expr ctx e2_inferred in
+      let ext_tp, ctx =
+        infer_ext ctx (lbl, e1_inferred.tp) e2_inferred'.tp
       in
       ( {expr= Ast.Expr.Extension (lbl, e1_inferred, e2_inferred'); tp= ext_tp}
-      , ext_ctx )
+      , ctx )
   | Ast.Expr.Literal l ->
       ( { expr= Ast.Expr.Literal l
         ; tp= Primitive (match l with
@@ -419,42 +412,42 @@ and check ctx annotated tp =
   match (annotated.expr, tp) with
   (* forall I *)
   | _, Forall (tv, tp') ->
-      let ctx' = Ctx.append_ctx [Ctx.Tvar tv] ctx in
-      let checked_e, new_ctx = check ctx' annotated tp' in
+      let ctx = Ctx.append_ctx [Ctx.Tvar tv] ctx in
+      let checked_e, ctx = check ctx annotated tp' in
       ( {checked_e with tp= Forall (tv, checked_e.tp)}
-      , Ctx.drop_ctx_from (Ctx.Tvar tv) new_ctx )
+      , Ctx.drop_ctx_from (Ctx.Tvar tv) ctx )
   (* forallRow I *)
   | _, ForallRow (tv, tp') ->
-      let ctx' = Ctx.append_ctx [Ctx.Row_tvar tv] ctx in
-      let checked_e, new_ctx = check ctx' annotated tp' in
+      let ctx = Ctx.append_ctx [Ctx.Row_tvar tv] ctx in
+      let checked_e, ctx = check ctx annotated tp' in
       ( {checked_e with tp= ForallRow (tv, checked_e.tp)}
-      , Ctx.drop_ctx_from (Ctx.Row_tvar tv) new_ctx )
+      , Ctx.drop_ctx_from (Ctx.Row_tvar tv) ctx )
   (* -> I *)
   | Expr.Function (pat, e), Function (arg_tp, return_tp) ->
-      let marker, ctx' = Ctx.fresh_marker ctx in
-      let ctx'' = Ctx.append_ctx [marker] ctx' in
-      let fun_ctx = check_pat ctx'' pat arg_tp in
-      let checked_e, new_ctx = check fun_ctx e return_tp in
+      let marker, ctx = Ctx.fresh_marker ctx in
+      let ctx = Ctx.append_ctx [marker] ctx in
+      let ctx = check_pat ctx pat arg_tp in
+      let checked_e, ctx = check ctx e return_tp in
       ( {expr= Function (pat, checked_e); tp= Function (arg_tp, return_tp)}
-      , Ctx.drop_ctx_from marker new_ctx )
+      , Ctx.drop_ctx_from marker ctx )
   (* <= Mu *)
   | _, Mu mu ->
       check ctx annotated (unfold_mu mu)
   (* Sub *)
   | _ ->
-      let e_inferred, ctx' = infer ctx annotated in
-      let e_inferred' = Ctx.apply_ctx_expr ctx' e_inferred in
-      let new_ctx = subsumes ctx' e_inferred'.tp (Ctx.apply_ctx ctx' tp) in
+      let e_inferred, ctx = infer ctx annotated in
+      let e_inferred' = Ctx.apply_ctx_expr ctx e_inferred in
+      let ctx = subsumes ctx e_inferred'.tp (Ctx.apply_ctx ctx tp) in
       (* do we do { e_inferred with tp } ? *)
-      (e_inferred', new_ctx)
+      (e_inferred', ctx)
 
 and infer_pat ctx pattern =
   let open Ast.Pattern in
   match pattern with
   | Var v ->
-    let ev_tp, ev_ce, _, ctx' = Ctx.fresh_evar ctx in
-    let var_ctx = Ctx.append_ctx [ev_ce; Ctx.Var (v, ev_tp)] ctx' in
-    (ev_tp, var_ctx)
+    let ev_tp, ev_ce, _, ctx = Ctx.fresh_evar ctx in
+    let ctx = Ctx.append_ctx [ev_ce; Ctx.Var (v, ev_tp)] ctx in
+    (ev_tp, ctx)
   | Literal l ->
     let tp = match l with
              | Int _ -> Type.Primitive Int
@@ -462,19 +455,19 @@ and infer_pat ctx pattern =
     in
     (tp, ctx)
   | Variant (v, p) ->
-    let p_tp, p_ctx = infer_pat ctx p in
-    let row_tail, row_tail_ce, _, ctx' = Ctx.fresh_row_evar p_ctx in
-    let ctx'' = Ctx.append_ctx [row_tail_ce] ctx' in
-    (Type.Variant ([(v, p_tp)], Some row_tail), ctx'')
+    let p_tp, ctx = infer_pat ctx p in
+    let row_tail, row_tail_ce, _, ctx = Ctx.fresh_row_evar ctx in
+    let ctx = Ctx.append_ctx [row_tail_ce] ctx in
+    (Type.Variant ([(v, p_tp)], Some row_tail), ctx)
   | Record r ->
-      let new_ctx, inferred_r =
+      let ctx, inferred_r =
         List.fold_map
           (fun ctx (label, e) ->
-            let inferred_tp, new_ctx = infer_pat ctx e in
-            (new_ctx, (label, inferred_tp)))
+            let inferred_tp, ctx = infer_pat ctx e in
+            (ctx, (label, inferred_tp)))
           ctx r
       in
-      (Record (inferred_r, None), new_ctx )
+      (Record (inferred_r, None), ctx )
 
 and check_pat ctx pattern tp =
   let pat_tp, ctx' = infer_pat ctx pattern in
@@ -502,17 +495,15 @@ and infer_app ctx tp e1 =
       (checked_e1, return_tp, new_ctx)
   (* EVar App *)
   | EVar ev ->
-      let arg_ev_tp, arg_ev_ce, _, ctx' = Ctx.fresh_evar ctx in
-      let ret_ev_tp, ret_ev_ce, _, ctx'' = Ctx.fresh_evar ctx' in
+      let arg_ev_tp, arg_ev_ce, _, ctx = Ctx.fresh_evar ctx in
+      let ret_ev_tp, ret_ev_ce, _, ctx = Ctx.fresh_evar ctx in
       (* The EVar should be unsovled if we find it, so it's safe to use 'Ctx.Evar ev' *)
-      let inserted_ctx =
-        Ctx.insert_before_in_ctx (Ctx.Evar ev) [arg_ev_ce; ret_ev_ce] ctx''
+      let ctx =
+        Ctx.insert_before_in_ctx (Ctx.Evar ev) [arg_ev_ce; ret_ev_ce] ctx
+        |> solve_evar ev (Function (arg_ev_tp, ret_ev_tp))
       in
-      let solved_ctx =
-        solve_evar ev (Function (arg_ev_tp, ret_ev_tp)) inserted_ctx
-      in
-      let checked_e1, new_ctx = check solved_ctx e1 arg_ev_tp in
-      (checked_e1, ret_ev_tp, new_ctx)
+      let checked_e1, ctx = check ctx e1 arg_ev_tp in
+      (checked_e1, ret_ev_tp, ctx)
   | Mu mu ->
       infer_app ctx (unfold_mu mu) e1
   | _ ->
@@ -549,29 +540,25 @@ and lookup_row ctx tp lbl =
     | None -> (
       match rt with
       | Some (Tail_evar ev) ->
-          let fresh_rt, fresh_rt_ce, _, ctx1 = Ctx.fresh_row_evar ctx in
-          let fresh_ev_tp, fresh_ev_ce, _, ctx2 = Ctx.fresh_evar ctx1 in
-          let ctx3 =
+          let fresh_rt, fresh_rt_ce, _, ctx = Ctx.fresh_row_evar ctx in
+          let fresh_ev_tp, fresh_ev_ce, _, ctx = Ctx.fresh_evar ctx in
+          let ctx =
             Ctx.insert_before_in_ctx (Ctx.Row_evar ev)
-              [fresh_ev_ce; fresh_rt_ce] ctx2
+              [fresh_ev_ce; fresh_rt_ce] ctx
+            |> solve_row_evar ev ([(lbl, fresh_ev_tp)], Some fresh_rt)
           in
-          let ctx4 =
-            solve_row_evar ev ([(lbl, fresh_ev_tp)], Some fresh_rt) ctx3
-          in
-          (fresh_ev_tp, ctx4)
+          (fresh_ev_tp, ctx)
       | _ ->
           failwith @@ "lookup_row: " ^ lbl ^ " not found." ) )
   (* LookupEVar *)
   | EVar ev ->
-      let fresh_rt, fresh_rt_ce, _, ctx1 = Ctx.fresh_row_evar ctx in
-      let fresh_ev_tp, fresh_ev_ce, _, ctx2 = Ctx.fresh_evar ctx1 in
-      let ctx3 =
-        Ctx.insert_before_in_ctx (Ctx.Evar ev) [fresh_ev_ce; fresh_rt_ce] ctx2
+      let fresh_rt, fresh_rt_ce, _, ctx = Ctx.fresh_row_evar ctx in
+      let fresh_ev_tp, fresh_ev_ce, _, ctx = Ctx.fresh_evar ctx in
+      let ctx =
+        Ctx.insert_before_in_ctx (Ctx.Evar ev) [fresh_ev_ce; fresh_rt_ce] ctx
+        |> solve_evar ev (Record ([(lbl, fresh_ev_tp)], Some fresh_rt))
       in
-      let ctx4 =
-        solve_evar ev (Record ([(lbl, fresh_ev_tp)], Some fresh_rt)) ctx3
-      in
-      (fresh_ev_tp, ctx4)
+      (fresh_ev_tp, ctx)
   | _ ->
       failwith "lookup_row: Got unexpected type."
 
@@ -591,12 +578,13 @@ and infer_ext ctx rcd_head tp =
   | Record (r, rt) ->
       (Type.Record (rcd_head :: r, rt), ctx)
   | EVar ev ->
-      let fresh_rt, fresh_rt_ce, _, ctx1 = Ctx.fresh_row_evar ctx in
+      let fresh_rt, fresh_rt_ce, _, ctx = Ctx.fresh_row_evar ctx in
       let rcd_tp = Type.Record ([], Some fresh_rt) in
-      let ctx2 = Ctx.insert_before_in_ctx (Ctx.Evar ev) [fresh_rt_ce] ctx1 in
-      let ctx3 = solve_evar ev rcd_tp ctx2 in
+      let ctx = Ctx.insert_before_in_ctx (Ctx.Evar ev) [fresh_rt_ce] ctx
+                |> solve_evar ev rcd_tp
+      in
       (* This is like rcd_tp, but extended with the rcd_head given *)
-      (Record ([rcd_head], Some fresh_rt), ctx3)
+      (Record ([rcd_head], Some fresh_rt), ctx)
   | _ ->
       failwith "infer_ext: Got unexpected type."
 
@@ -616,20 +604,20 @@ and subsumes ctx tp1 tp2 =
         failwith @@ "subsumes: Inequivalent tvars " ^ tv1 ^ " and " ^ tv2 ^ "."
   (* Forall L *)
   | Forall (tv, forall_inner), tp2 ->
-      let ev_tp, ev_ce, _, ctx' = Ctx.fresh_evar ctx in
+      let ev_tp, ev_ce, _, ctx = Ctx.fresh_evar ctx in
       let marker = Ctx.Marker ev_ce in
-      let subst_ctx = Ctx.append_ctx [marker; ev_ce] ctx' in
+      let ctx = Ctx.append_ctx [marker; ev_ce] ctx in
       let subst_forall_inner = substitute tv ~replace_with:ev_tp forall_inner in
-      subsumes subst_ctx subst_forall_inner tp2 |> Ctx.drop_ctx_from marker
+      subsumes ctx subst_forall_inner tp2 |> Ctx.drop_ctx_from marker
   (* Forall Row L *)
   | ForallRow (tv, forall_inner), tp2 ->
-      let ev_tail, ev_ce, _, ctx' = Ctx.fresh_row_evar ctx in
+      let ev_tail, ev_ce, _, ctx = Ctx.fresh_row_evar ctx in
       let marker = Ctx.Marker ev_ce in
-      let subst_ctx = Ctx.append_ctx [marker; ev_ce] ctx' in
+      let ctx = Ctx.append_ctx [marker; ev_ce] ctx in
       let subst_forall_inner =
         substitute_row tv ~replace_with:ev_tail forall_inner
       in
-      subsumes subst_ctx subst_forall_inner tp2 |> Ctx.drop_ctx_from marker
+      subsumes ctx subst_forall_inner tp2 |> Ctx.drop_ctx_from marker
   (* Forall R *)
   | tp1, Forall (tv, forall_inner) ->
       let ctx' = Ctx.append_ctx [Ctx.Row_tvar tv] ctx in
@@ -763,17 +751,17 @@ and instantiateR ctx tp ev =
         ev row
   (* InstRAllL *)
   | Forall (tv, forall_inner) ->
-      let forall_ev_tp, forall_ev_ce, _, ctx' = Ctx.fresh_evar ctx in
-      let ctx'' = Ctx.append_ctx [Ctx.Marker forall_ev_ce; forall_ev_ce] ctx' in
-      instantiateR ctx''
+      let forall_ev_tp, forall_ev_ce, _, ctx = Ctx.fresh_evar ctx in
+      let ctx = Ctx.append_ctx [Ctx.Marker forall_ev_ce; forall_ev_ce] ctx in
+      instantiateR ctx
         (substitute tv ~replace_with:forall_ev_tp forall_inner)
         ev
       |> Ctx.drop_ctx_from (Ctx.Marker forall_ev_ce)
   (* InstRAllRowL*)
   | ForallRow (tv, forall_inner) ->
-      let ev_tail, ev_ce, _, ctx' = Ctx.fresh_row_evar ctx in
-      let ctx'' = Ctx.append_ctx [Ctx.Marker ev_ce; ev_ce] ctx' in
-      instantiateR ctx''
+      let ev_tail, ev_ce, _, ctx = Ctx.fresh_row_evar ctx in
+      let ctx = Ctx.append_ctx [Ctx.Marker ev_ce; ev_ce] ctx in
+      instantiateR ctx
         (substitute_row tv ~replace_with:ev_tail forall_inner)
         ev
       |> Ctx.drop_ctx_from (Ctx.Marker ev_ce)
@@ -787,17 +775,15 @@ and instantiateR ctx tp ev =
         ev row
 
 and instantiate_fn ctx argInstFn retInstFn ev (arg_tp, ret_tp) =
-  let arg_ev_tp, arg_ev_ce, arg_ev, ctx' = Ctx.fresh_evar ctx in
-  let ret_ev_tp, ret_ev_ce, ret_ev, ctx'' = Ctx.fresh_evar ctx' in
+  let arg_ev_tp, arg_ev_ce, arg_ev, ctx = Ctx.fresh_evar ctx in
+  let ret_ev_tp, ret_ev_ce, ret_ev, ctx = Ctx.fresh_evar ctx in
   (* The EVar should be unsovled if we find it, so it's safe to use 'Ctx.Evar ev' *)
-  let inserted_ctx =
-    Ctx.insert_before_in_ctx (Ctx.Evar ev) [arg_ev_ce; ret_ev_ce] ctx''
+  let ctx =
+    Ctx.insert_before_in_ctx (Ctx.Evar ev) [arg_ev_ce; ret_ev_ce] ctx
+    |> solve_evar ev (Function (arg_ev_tp, ret_ev_tp))
   in
-  let solved_ctx =
-    solve_evar ev (Function (arg_ev_tp, ret_ev_tp)) inserted_ctx
-  in
-  let new_ctx = argInstFn solved_ctx arg_ev arg_tp in
-  retInstFn new_ctx ret_ev (Ctx.apply_ctx new_ctx ret_tp)
+  let ctx = argInstFn ctx arg_ev arg_tp in
+  retInstFn ctx ret_ev (Ctx.apply_ctx ctx ret_tp)
 
 and instantiate_row ctx instFn tpWrapper ev (r, rt) =
   let make_fresh_evars lst ctx =
@@ -807,30 +793,26 @@ and instantiate_row ctx instFn tpWrapper ev (r, rt) =
         (ev_tp :: ev_tps, ev_ce :: ev_ces, ev :: evs, ctx'))
       lst ([], [], [], ctx)
   in
-  let fresh_evar_tps, fresh_evar_ces, fresh_evs, ctx1 =
+  let fresh_evar_tps, fresh_evar_ces, fresh_evs, ctx =
     make_fresh_evars r ctx
   in
-  let fresh_rt, fresh_rt_ce, _, ctx2 = Ctx.fresh_row_evar ctx1 in
-  let ctx3 =
-    Ctx.insert_before_in_ctx (Ctx.Evar ev) (fresh_evar_ces @ [fresh_rt_ce]) ctx2
+  let fresh_rt, fresh_rt_ce, _, ctx = Ctx.fresh_row_evar ctx in
+  let ctx =
+    Ctx.insert_before_in_ctx (Ctx.Evar ev) (fresh_evar_ces @ [fresh_rt_ce]) ctx
+    |> List.fold_right2 (fun (_, tp) ev ctx -> instFn ctx ev tp) r fresh_evs
+    |> solve_evar ev
+         (tpWrapper
+           ( List.map2 (fun (lbl, _) ev_tp -> (lbl, ev_tp)) r fresh_evar_tps
+           , Some fresh_rt ))
   in
-  let ctx4 =
-    List.fold_right2 (fun (_, tp) ev ctx -> instFn ctx ev tp) r fresh_evs ctx3
-  in
-  let ctx5 =
-    solve_evar ev
-      (tpWrapper
-         ( List.map2 (fun (lbl, _) ev_tp -> (lbl, ev_tp)) r fresh_evar_tps
-         , Some fresh_rt ))
-      ctx4
-  in
-  row_tail_subsumes ctx5 (Some fresh_rt) [] rt []
+  row_tail_subsumes ctx (Some fresh_rt) [] rt []
 
 and instantiate_mu ctx instFn ev (tv, mu_inner) =
-  let mu_ev_tp, mu_ev_ce, mu_ev, ctx' = Ctx.fresh_evar ctx in
-  let inserted_ctx = Ctx.insert_before_in_ctx (Ctx.Evar ev) [mu_ev_ce] ctx' in
-  let solved_ctx = solve_evar ev (Type.Mu (tv, mu_ev_tp)) inserted_ctx in
-  instFn solved_ctx mu_ev mu_inner
+  let mu_ev_tp, mu_ev_ce, mu_ev, ctx = Ctx.fresh_evar ctx in
+  let ctx = Ctx.insert_before_in_ctx (Ctx.Evar ev) [mu_ev_ce] ctx
+            |> solve_evar ev (Type.Mu (tv, mu_ev_tp))
+  in
+  instFn ctx mu_ev mu_inner
 
 (* find where ev1 and ev2 are located in the context. Assign the later one to the earlier one.*)
 and instantiateReach ctx ev1 ev2 =
@@ -918,47 +900,47 @@ and row_tail_subsumes_ev ctx ev1 missingFrom1 ev2 missingFrom2 =
         (ev_tp :: ev_tps, ev_ce :: ev_ces, ev :: evs, ctx'))
       lst ([], [], [], ctx)
   in
-  let fresh_evars1, fresh_evars1_ces, fresh_evs1, ctx1 =
+  let fresh_evars1, fresh_evars1_ces, fresh_evs1, ctx =
     make_fresh_evars missingFrom1 ctx
   in
-  let fresh_evars2, fresh_evars2_ces, fresh_evs2, ctx2 =
-    make_fresh_evars missingFrom2 ctx1
+  let fresh_evars2, fresh_evars2_ces, fresh_evs2, ctx =
+    make_fresh_evars missingFrom2 ctx
   in
-  let fresh_rt1, fresh_rt1_ce, fresh_rev1, ctx3 = Ctx.fresh_row_evar ctx2 in
-  let fresh_rt2, fresh_rt2_ce, fresh_rev2, ctx4 = Ctx.fresh_row_evar ctx3 in
-  let ctx5 =
+  let fresh_rt1, fresh_rt1_ce, fresh_rev1, ctx = Ctx.fresh_row_evar ctx in
+  let fresh_rt2, fresh_rt2_ce, fresh_rev2, ctx = Ctx.fresh_row_evar ctx in
+  let ctx =
     Ctx.insert_before_in_ctx (Ctx.Row_evar ev1)
       (fresh_evars1_ces @ [fresh_rt1_ce])
-      ctx4
+      ctx
     |> Ctx.insert_before_in_ctx (Ctx.Row_evar ev2)
          (fresh_evars2_ces @ [fresh_rt2_ce])
   in
-  let ctx6 =
+  let ctx =
     solve_row_evar ev1
       ( List.map2 (fun (lbl, _) ev_tp -> (lbl, ev_tp)) missingFrom1 fresh_evars1
       , Some fresh_rt1 )
-      ctx5
+      ctx
   in
-  let ctx7 =
+  let ctx =
     solve_row_evar ev2
       ( List.map2 (fun (lbl, _) ev_tp -> (lbl, ev_tp)) missingFrom2 fresh_evars2
       , Some fresh_rt2 )
-      ctx6
+      ctx
   in
-  let ctx8 =
+  let ctx =
     List.fold_right2
       (fun (_, tp) ev ctx -> instantiateL ctx ev (Ctx.apply_ctx ctx tp))
- missingFrom1 fresh_evs1 ctx7
+ missingFrom1 fresh_evs1 ctx
   in
-  let ctx9 =
+  let ctx =
     List.fold_right2
       (fun (_, tp) ev ctx -> instantiateR ctx (Ctx.apply_ctx ctx tp) ev)
-      missingFrom2 fresh_evs2 ctx8
+      missingFrom2 fresh_evs2 ctx
   in
   (* print_debug "row_tail_subsumes_ev tails: ";
    * print_debug @@ Int.to_string fresh_rev1;
    * print_debug @@ Int.to_string fresh_rev2; *)
-  row_tail_reach ctx9 fresh_rev1 fresh_rev2
+  row_tail_reach ctx fresh_rev1 fresh_rev2
 
 and row_tail_reach ctx ev1 ev2 =
   let find_ev ev =
