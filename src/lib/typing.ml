@@ -363,46 +363,42 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
       , ctx )
 
   | Ast.Expr.Case (input, cs) ->
-    let input_inferred, ctx' = infer ctx input in
-    let input_inferred' = Ctx.apply_ctx_expr ctx' input_inferred in
+    let input_inferred, ctx = infer ctx input in
+    let input_inferred' = Ctx.apply_ctx_expr ctx input_inferred in
     let input_tp = input_inferred'.tp in
-    (* (\* We create this variant whose types are evars (which we never inspect, so we don't care about) in order to force the input variant to conform with its shape. *\)
-     * (\* TODO allow cases to have duplicate labels -- will need to be added when we add pattern matching. this means we can't use the subsumes trick below. *\)
-     * let case_variant_tail = if has_var_pat
-     *                         then Some case_variant_rt
-     *                         else None
-     * in
-     * let case_variant = Type.Variant (List.map2 (fun lbl ev_tp -> (lbl, ev_tp)) tag_lbls case_variant_evs, case_variant_tail) in
-     * (\* Get rid of any resolution that happens with the EVars -- this should be safe and will help clean up the context. If we get errors, we can remove the drop_ctx_from and see if that helps. *\)
-     * let ctx4 = subsumes ctx3 e_inferred'.tp case_variant |> Ctx.drop_ctx_from marker in
-     * let input_variant_tp = Ctx.apply_ctx ctx4 e_inferred'.tp in
-     * (\* print_tp input_variant_tp;
-     *  * print_ctx ctx4; *\) *)
-    (* match input_variant_tp with
-     * | Type.Variant (v, _) ->
-     *   let rm = RowMap.of_list v in *)
-      let ret_ev_tp, ret_ev_ce, _, ctx5 = Ctx.fresh_evar ctx' in
-      let ctx6 = Ctx.append_ctx [ret_ev_ce] ctx5 in
-      let ctx7, cs_inferred  = List.fold_map
-        (fun ctx (pat, case_inner) ->
-          (* Need to apply context in case any solutions happened in previous parts *)
-          let ret_tp = Ctx.apply_ctx ctx ret_ev_tp in
-          let marker, ctx' = Ctx.fresh_marker ctx in
-          let marker_ctx = Ctx.append_ctx [marker] ctx' in
-          let ctx'' = check_pat marker_ctx pat input_tp in
-          let case_inner_checked, new_ctx = check ctx'' case_inner ret_tp in
-          (* print_tp @@ Ctx.apply_ctx new_ctx var_tp; *)
-          (Ctx.drop_ctx_from marker new_ctx, (pat, case_inner_checked))
-        )
-        ctx6
-        cs
-      in
-      let case_expr = Ctx.apply_ctx_expr ctx7 {expr = Ast.Expr.Case (input_inferred', cs_inferred); tp= ret_ev_tp} in
-      (* print_string "Case:\n";
-       * print_tp case_expr.tp;
-       * print_ctx ctx7; *)
-      (case_expr, ctx7)
-    (* | _ -> failwith "infer: case, got an input that wasn't a variant (this should've failed earlier)." *)
+    let ret_ev_tp, ret_ev_ce, _, ctx = Ctx.fresh_evar ctx in
+    let ctx = Ctx.append_ctx [ret_ev_ce] ctx in
+    let ctx, cs_inferred  = List.fold_map
+      (fun ctx (pat, case_inner) ->
+        (* Need to apply context in case any solutions happened in previous parts *)
+        let ret_tp = Ctx.apply_ctx ctx ret_ev_tp in
+        let marker, ctx' = Ctx.fresh_marker ctx in
+        let marker_ctx = Ctx.append_ctx [marker] ctx' in
+        let ctx'' = check_pat marker_ctx pat input_tp in
+        let case_inner_checked, new_ctx = check ctx'' case_inner ret_tp in
+        (* print_tp @@ Ctx.apply_ctx new_ctx var_tp; *)
+        (Ctx.drop_ctx_from marker new_ctx, (pat, case_inner_checked))
+      )
+      ctx
+      cs
+    in
+    let resolved_input_tp = Ctx.apply_ctx ctx input_inferred'.tp in
+    let has_var_pat = List.exists (function (Ast.Pattern.Var _, _) -> true | _ -> false) cs in
+    let ctx =
+      match (resolved_input_tp, has_var_pat) with
+      (* If we resolve the input to a variant _and_ there isn't a catch-all case (a var pat), we need to close the tail of the input variant *)
+      | Type.Variant (_, Some (Type.Tail_evar ev)), false ->
+        solve_row_evar ev ([], None) ctx
+      (* Hopefully this doesn't happen. Not sure how this could occur. *)
+      | Type.Variant (_, Some (Type.Tail_tvar _tv)), false ->
+        failwith "infer case: Expected a closed variant, but got a variant with a tail tvar (which means its tail cannot be closed)."
+      | _ -> ctx
+    in
+    let case_expr = Ctx.apply_ctx_expr ctx {expr = Ast.Expr.Case (input_inferred', cs_inferred); tp= ret_ev_tp} in
+    (* print_string "Case:\n";
+      * print_tp case_expr.tp;
+      * print_ctx ctx; *)
+    (case_expr, ctx)
 
 and check ctx annotated tp =
   (* print_string "check:\n";
