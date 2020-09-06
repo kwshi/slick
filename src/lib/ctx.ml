@@ -12,52 +12,62 @@ type element =
 [@@deriving show]
 
 type t =
-  { next_var: int
+  { next_var : int
         (* this is for both evars and tvars - we could separate it though *)
-  ; context: element list }
+  ; context : element list
+  }
 
-let empty = {next_var= 0; context= []}
+let empty = { next_var = 0; context = [] }
 
-let of_list context = {next_var= List.length context; context}
+let of_list context = { next_var = List.length context; context }
 
 let fresh_evar ctx =
   ( Type.EVar ctx.next_var
   , Evar ctx.next_var
   , ctx.next_var
-  , {ctx with next_var= ctx.next_var + 1} )
+  , { ctx with next_var = ctx.next_var + 1 } )
+
 
 let fresh_row_evar ctx =
   ( Type.Tail_evar ctx.next_var
   , Row_evar ctx.next_var
   , ctx.next_var
-  , {ctx with next_var= ctx.next_var + 1} )
+  , { ctx with next_var = ctx.next_var + 1 } )
+
 
 let fresh_marker ctx =
-  ( Marker (Row_evar ctx.next_var)
-  , {ctx with next_var= ctx.next_var + 1} )
+  (Marker (Row_evar ctx.next_var), { ctx with next_var = ctx.next_var + 1 })
+
 
 let over_context f ctx =
   (* print_string (List.to_string show_context_element @@ ctx.context); print_newline (); *)
-  {ctx with context= f ctx.context}
+  { ctx with context = f ctx.context }
+
 
 let lookup_var v ctx =
   let results =
-  (* in order to properly implement shadowing, we always want the last occurrence *)
-  List.filter_map
-    (function Var (v', tp) when String.(equal v v') -> Some tp | _ -> None)
-    ctx.context
-  in match List.last_opt results with
-     | None -> failwith @@ "lookup_var unbound var: " ^ v ^ "."
-     | Some tp -> tp
+    (* in order to properly implement shadowing, we always want the last occurrence *)
+    List.filter_map
+      (function Var (v', tp) when String.(equal v v') -> Some tp | _ -> None)
+      ctx.context
+  in
+  match List.last_opt results with
+  | None ->
+      failwith @@ "lookup_var unbound var: " ^ v ^ "."
+  | Some tp ->
+      tp
+
 
 (* TODO change to free_evars or row_evars over a type *)
 let free_evars ctx =
   let match_evar = function Evar ev -> Some ev | _ -> None in
   List.filter_map match_evar ctx.context
 
+
 let free_row_evars ctx =
   let match_evar = function Row_evar ev -> Some ev | _ -> None in
   List.filter_map match_evar ctx.context
+
 
 (* drop_ctx_from:
    takes in a context_element ce and a context.
@@ -82,9 +92,11 @@ let drop_ctx_from ce =
             (true, None)
         | false, false ->
             (false, Some ce'))
-      false ctx
+      false
+      ctx
   in
   if found then ctx' else failwith "drop_ctx_from not found"
+
 
 (* Parallel to drop_ctx_from. Still removes the element queried. *)
 let get_ctx_after ce =
@@ -97,6 +109,7 @@ let get_ctx_after ce =
         []
   in
   over_context go
+
 
 (* apply_ctx:
    takes in a context ctx and a type tp.
@@ -120,10 +133,10 @@ let rec apply_ctx ctx =
     | Type.EVar ev ->
         ctx.context
         |> List.find_map (function
-             | Evar_assignment (ev', t) when Int.(ev = ev') ->
-                 Some (go t)
-             | _ ->
-                 None)
+               | Evar_assignment (ev', t) when Int.(ev = ev') ->
+                   Some (go t)
+               | _ ->
+                   None)
         |> Option.get_or ~default:(Type.EVar ev)
     | Type.Forall (tv, tp) ->
         Type.Forall (tv, go tp)
@@ -136,26 +149,28 @@ let rec apply_ctx ctx =
     | Type.TVar tv ->
         Type.TVar tv
     | Type.Variant r ->
-      Type.Variant (row r)
+        Type.Variant (row r)
   and row (l, t) =
     let l' = List.map (Pair.map2 go) l in
     match apply_ctx_tail ctx t with
-    | `Solved r   ->
-      let (l'', t') = row r in
-      (l'' @ l', t')
-    | `Unsolved t -> (l', t)
+    | `Solved r ->
+        let l'', t' = row r in
+        (l'' @ l', t')
+    | `Unsolved t ->
+        (l', t)
   in
   go
+
 
 and apply_ctx_tail ctx t =
   match t with
   | Some (Tail_evar ev) ->
       ctx.context
       |> List.find_map (function
-            | Row_evar_assignment (ev', r) when Int.(ev = ev') ->
-                Some (`Solved r)
-            | _ ->
-                None)
+             | Row_evar_assignment (ev', r) when Int.(ev = ev') ->
+                 Some (`Solved r)
+             | _ ->
+                 None)
       |> Option.get_or ~default:(`Unsolved t)
   | _ ->
       `Unsolved t
@@ -184,17 +199,18 @@ let apply_ctx_expr ctx =
       | Expr.Extension (lbl, e, r) ->
           Expr.Extension (lbl, go e, go r)
       | Expr.Case (e, cs) ->
-        Expr.Case (go e, List.map (fun (p, e) -> (p, go e)) cs)
+          Expr.Case (go e, List.map (fun (p, e) -> (p, go e)) cs)
       | Expr.Literal l ->
           Expr.Literal l
       | Expr.Bop (o, a, b) ->
-        Expr.Bop (o, go a, go b)
+          Expr.Bop (o, go a, go b)
       | Expr.Uop (o, a) ->
-        Expr.Uop (o, go a)
+          Expr.Uop (o, go a)
     in
-    {expr; tp}
+    { expr; tp }
   in
   go
+
 
 (* insert_before_in_ctx
    takes in a context element ce, a list of context elements ces, and a context ctx.
@@ -210,10 +226,12 @@ let insert_before_in_ctx ce ces =
   @@ fun l ->
   List.fold_right
     (fun ce' acc ->
-      ( if Stdlib.(ce' = ce) (* TODO get rid of polymorphic comparison *) then
-        ces
+      ( if Stdlib.(ce' = ce) (* TODO get rid of polymorphic comparison *)
+      then ces
       else [] )
       @ (ce' :: acc))
-    l []
+    l
+    []
+
 
 let append_ctx ces = over_context @@ fun context -> List.append context ces

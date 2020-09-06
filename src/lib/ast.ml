@@ -32,9 +32,7 @@ module Pattern = struct
     | Variant of (label * t)
     | Var of var_name
     | Literal of literal
-
 end
-
 
 module Expr = struct
   type literal =
@@ -54,16 +52,20 @@ module Expr = struct
     | Var of var_name
     | Literal of literal
     | Case of ('t * (Pattern.t * 't) list)
+
   and 'annotated_expr record = (label * 'annotated_expr) list
 
-  and 'tp t = {tp: 'tp; expr: 'tp t raw_expr}
+  and 'tp t =
+    { tp : 'tp
+    ; expr : 'tp t raw_expr
+    }
 
   module Untyped = struct
     type 'a expr = 'a t
 
     type t = unit expr
 
-    let make expr = {tp= (); expr}
+    let make expr = { tp = (); expr }
 
     let make_function v e = make @@ Function (v, e)
 
@@ -100,29 +102,38 @@ module Module = struct
 end
 
 module Repl = struct
-  type 'tp t = 
+  type 'tp t =
     | Empty
     | Def of string * 'tp Expr.t
     | Expr of 'tp Expr.t
     | Cmd of string * string
 end
 
-let rec match_pat =
-  function
-  | Pattern.Var var, v -> Some [(var, v)]
-  | Pattern.Record fields, Val.Record r -> List.fold_right
-    (fun (lbl, pat') accum_opt ->
-    match accum_opt, Val.Record.get lbl r with
-    | Some accum, Some v -> (match match_pat (pat', v) with
-                            | Some bindings -> Some (bindings @ accum)
-                            | None -> None)
-    | _ -> None
-    ) fields
-    (Some [])
-  | Pattern.Variant (lbl, pat'), (Val.Variant (lbl', v)) when String.(equal lbl lbl') ->
-    match_pat (pat', v)
-  | Pattern.Literal (Int i), Val.Primitive (Val.Primitive.Int i') when (Z.equal i i') ->
-    Some []
-  | Pattern.Literal (String s), Val.Primitive (Val.Primitive.String s') when String.(equal s s') ->
-    Some []
-  | _ -> None
+let rec match_pat = function
+  | Pattern.Var var, v ->
+      Some [ (var, v) ]
+  | Pattern.Record fields, Val.Record r ->
+      List.fold_right
+        (fun (lbl, pat') accum_opt ->
+          match (accum_opt, Val.Record.get lbl r) with
+          | Some accum, Some v ->
+            ( match match_pat (pat', v) with
+            | Some bindings ->
+                Some (bindings @ accum)
+            | None ->
+                None )
+          | _ ->
+              None)
+        fields
+        (Some [])
+  | Pattern.Variant (lbl, pat'), Val.Variant (lbl', v)
+    when String.(equal lbl lbl') ->
+      match_pat (pat', v)
+  | Pattern.Literal (Int i), Val.Primitive (Val.Primitive.Int i')
+    when Z.equal i i' ->
+      Some []
+  | Pattern.Literal (String s), Val.Primitive (Val.Primitive.String s')
+    when String.(equal s s') ->
+      Some []
+  | _ ->
+      None

@@ -10,35 +10,48 @@ module Primitive = struct
     let open Fmt in
     let dim = styled `Faint % styled (`Fg `Cyan) in
     let esc = styled (`Fg `Yellow) % any in
-    (fun ppf s ->
-       dim (any "“") ppf ();
-       String.iter
-         (fun c ->
-            ( match c with
-              | '\n' -> esc "\\n"
-              | '\t' -> esc "\\t"
-              | '\r' -> esc "\\r"
-              | '"' -> esc "\\\""
-              | '\\' -> esc "\\\\"
-              | _ -> const char c
-            ) ppf ()
-         )
-         s
-       ; dim (any "”") ppf ()
-    )
+    fun ppf s ->
+      dim (any "“") ppf () ;
+      String.iter
+        (fun c ->
+          ( match c with
+          | '\n' ->
+              esc "\\n"
+          | '\t' ->
+              esc "\\t"
+          | '\r' ->
+              esc "\\r"
+          | '"' ->
+              esc "\\\""
+          | '\\' ->
+              esc "\\\\"
+          | _ ->
+              const char c )
+            ppf
+            ())
+        s ;
+      dim (any "”") ppf ()
+
 
   let pp ppf p =
     let open Fmt in
-    (match p with
-     | Int n -> const Z.pp_print n
-     | String s -> const pp_string_esc s) ppf ()
+    ( match p with
+    | Int n ->
+        const Z.pp_print n
+    | String s ->
+        const pp_string_esc s )
+      ppf
+      ()
+
 
   module Get = struct
     let int = function Int n -> Some n | _ -> None
+
     let str = function String s -> Some s | _ -> None
 
     module Exn = struct
       let int = Option.get_exn % int
+
       let str = Option.get_exn % str
     end
   end
@@ -66,14 +79,12 @@ let rec pp ppf value =
   | Function _ ->
       any "<function>"
   | Variant (v, e) ->
-    const string v ++
-    (match e with
-     | Record [] -> nop
-     | _ -> sp ++ const pp e
-    )
+      const string v ++ (match e with Record [] -> nop | _ -> sp ++ const pp e)
   | Primitive p ->
       const Primitive.pp p )
-    ppf ()
+    ppf
+    ()
+
 
 and pp_record ppf =
   let open Fmt in
@@ -82,8 +93,10 @@ and pp_record ppf =
   ++ any "}" )
     ppf
 
+
 module Make = struct
   let unit = Record []
+
   let bool b = Variant ((if b then "True" else "False"), unit)
 end
 
@@ -97,9 +110,13 @@ module Get = struct
   let primitive = function Primitive p -> Some p | _ -> None
 
   let bool = function
-    | Variant ("True", Record []) -> Some true
-    | Variant ("False", Record []) -> Some false
-    | _ ->None
+    | Variant ("True", Record []) ->
+        Some true
+    | Variant ("False", Record []) ->
+        Some false
+    | _ ->
+        None
+
 
   module Exn = struct
     let record = Option.get_exn % record
