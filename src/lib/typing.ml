@@ -1003,41 +1003,29 @@ and row_tail_subsumes_ev ctx ev1 missingFrom1 ev2 missingFrom2 =
   let fresh_rt1, fresh_rt1_ce, fresh_rev1, ctx = Ctx.fresh_row_evar ctx in
   let fresh_rt2, fresh_rt2_ce, fresh_rev2, ctx = Ctx.fresh_row_evar ctx in
   let ctx =
-    Ctx.insert_before_in_ctx
+    ctx
+    |> Ctx.insert_before_in_ctx
       (Ctx.Row_evar ev1)
       (fresh_evars1_ces @ [ fresh_rt1_ce ])
-      ctx
     |> Ctx.insert_before_in_ctx
          (Ctx.Row_evar ev2)
          (fresh_evars2_ces @ [ fresh_rt2_ce ])
-  in
-  let ctx =
-    solve_row_evar
+    |> solve_row_evar
       ev1
       ( List.map2 (fun (lbl, _) ev_tp -> (lbl, ev_tp)) missingFrom1 fresh_evars1
       , Some fresh_rt1 )
-      ctx
-  in
-  let ctx =
-    solve_row_evar
+    |> solve_row_evar
       ev2
       ( List.map2 (fun (lbl, _) ev_tp -> (lbl, ev_tp)) missingFrom2 fresh_evars2
       , Some fresh_rt2 )
-      ctx
-  in
-  let ctx =
-    List.fold_right2
+    |> List.fold_right2
       (fun (_, tp) ev ctx -> instantiateL ctx ev (Ctx.apply_ctx ctx tp))
       missingFrom1
       fresh_evs1
-      ctx
-  in
-  let ctx =
-    List.fold_right2
+    |> List.fold_right2
       (fun (_, tp) ev ctx -> instantiateR ctx (Ctx.apply_ctx ctx tp) ev)
       missingFrom2
       fresh_evs2
-      ctx
   in
   (* print_debug "row_tail_subsumes_ev tails: ";
    * print_debug @@ Int.to_string fresh_rev1;
