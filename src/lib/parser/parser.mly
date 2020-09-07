@@ -7,41 +7,35 @@ module Slick = struct end
 
 %}
 
-%token <string> LOWER_IDENT
-%token <string> UPPER_IDENT
+%token <string> LOWER_IDENT UPPER_IDENT
 %token <Z.t> INT
 %token <string> STRING
 %token BACKSLASH
 %token CASE
 %token DEF
-%token MINUS
-%token PLUS
-%token MOD
-%token PLUS_PLUS
-%token ASTERISK
-%token LPAREN
-%token RPAREN
+%token LPAREN RPAREN
+%token LBRACE RBRACE
 %token ARROW
 %token EQUALS
-%token LBRACE
-%token RBRACE
-%token SEMICOLON
-%token COLON
-%token COMMA
-%token DOT
+%token SEMICOLON COLON COMMA DOT
 %token PIPE
-%token SLASH
-%token GE
-%token GT
-%token LE
-%token LT
-%token EQ
-%token NE
-%token AND
-%token OR
-%token POW
 %token WALRUS
 %token EOF
+
+%token PLUS MINUS
+%token PLUS_PLUS
+%token ASTERISK SLASH MOD
+%token GE GT LE LT EQ NE
+%token AND OR
+%token POW
+
+%left OR
+%left AND
+
+%left PLUS_PLUS
+%left PLUS MINUS
+%left ASTERISK SLASH MOD
+%right POW
 
 %start <Slick_ast.Expr.Untyped.t> prog
 %start <unit Slick_ast.Module.t> module_
@@ -105,34 +99,40 @@ expr:
   | e = expr_body { e }
 
 expr_body:
-  | e = expr_op_comp { e }
+  | e = expr_bool_bop { e }
 
-expr_op_comp:
-  | a = expr_op_add; LT; b = expr_op_add { Expr.make_bop "<" a b }
-  | a = expr_op_add; LE; b = expr_op_add { Expr.make_bop "<=" a b }
-  | a = expr_op_add; GT; b = expr_op_add { Expr.make_bop ">" a b }
-  | a = expr_op_add; GE; b = expr_op_add { Expr.make_bop ">=" a b }
-  | a = expr_op_add; EQ; b = expr_op_add { Expr.make_bop "==" a b }
-  | a = expr_op_add; NE; b = expr_op_add { Expr.make_bop "!=" a b }
-  | e = expr_op_add { e }
+expr_bool_bop:
+  | a = expr_bool_bop; o = bool_bop; b = expr_bool_bop { Expr.make_bop o a b }
+  | e = expr_comp { e }
 
-expr_op_add:
-  | a = expr_op_add; PLUS; b = expr_op_mul { Expr.make_bop "+" a b }
-  | a = expr_op_add; PLUS_PLUS; b = expr_op_mul { Expr.make_bop "++" a b }
-  | a = expr_op_add; MINUS; b = expr_op_mul { Expr.make_bop "-" a b }
-  | a = expr_op_add; OR; b = expr_op_mul { Expr.make_bop "||" a b }
-  | e = expr_op_mul { e }
+%inline bool_bop:
+  | AND { "&&" }
+  | OR { "||" }
 
-expr_op_mul:
-  | a = expr_op_mul; ASTERISK; b = expr_op_pow { Expr.make_bop "*" a b }
-  | a = expr_op_mul; SLASH; b = expr_op_pow { Expr.make_bop "/" a b }
-  | a = expr_op_mul; MOD; b = expr_op_pow { Expr.make_bop "%" a b }
-  | a = expr_op_mul; AND; b = expr_op_pow { Expr.make_bop "&&" a b }
-  | e = expr_op_pow { e }
+expr_comp:
+  | a = expr_bop; c = comp; b = expr_bop { Expr.make_bop c a b }
+  | e = expr_bop { e }
 
-expr_op_pow:
-  | a = expr_op_neg; POW; b = expr_op_pow { Expr.make_bop "**" a b }
+comp:
+  | LT { "<" }
+  | LE { "<=" }
+  | GT { ">" }
+  | GE { ">=" }
+  | EQ { "==" }
+  | NE { "!=" }
+
+expr_bop:
+  | a = expr_bop; o = bop; b = expr_bop { Expr.make_bop o a b }
   | e = expr_op_neg { e }
+
+%inline bop:
+  | PLUS { "+" }
+  | MINUS { "-" }
+  | ASTERISK { "*" }
+  | SLASH { "/" }
+  | MOD { "%" }
+  | POW { "**" }
+  | PLUS_PLUS { "++" }
 
 expr_op_neg:
   | MINUS; e = expr_app { Expr.make_uop "$-" e }
