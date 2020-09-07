@@ -1,5 +1,4 @@
 %{
-open Containers
 
 module Expr = Slick_ast.Expr.Untyped
 
@@ -57,22 +56,11 @@ function_type:
 *)
 
 module_:
-  | m = module_entries; EOF { m }
-
-module_entries:
-  | m = rev_module_entries { List.rev m }
-
-rev_module_entries:
-  | { [] }
-  | m = rev_module_entries; e = module_entry { e :: m }
+  | m = list(module_entry); EOF { m }
 
 module_entry:
-  | DEF; s = LOWER_IDENT; args = rev_def_args; COLON; e = expr { (s, Expr.make_function_curried (List.rev args) e) }
+  | DEF; s = LOWER_IDENT; args = list(pattern_atom); COLON; e = expr { (s, Expr.make_function_curried args e) }
 
-
-rev_def_args:
-  | { [] }
-  | args = rev_def_args; a = pattern_atom { a :: args }
 
 repl:
   | EOF { Slick_ast.Repl.Empty }
@@ -95,7 +83,7 @@ pattern_atom:
 expr:
   | v = LOWER_IDENT; WALRUS; e = expr_body; SEMICOLON; b = expr { Expr.make_assign v e b }
   | f = function_expr { f }
-  | CASE; e = expr_body; COLON; l = rev_case_entries { Expr.make_case e (List.rev l) }
+  | CASE; e = expr_body; COLON; l = nonempty_list(case_entry) { Expr.make_case e l }
   | e = expr_body { e }
 
 expr_body:
@@ -156,38 +144,23 @@ expr_atom:
   | r = expr_atom; DOT; l = LOWER_IDENT { Expr.make_projection r l }
   | n = INT { Expr.(make_literal (Int n)) }
   | s = STRING { Expr.(make_literal (String s))}
-  | LBRACE; e = expr_body; PIPE; l = comma_sequence(record_expr_entry) RBRACE { Expr.make_extensions e l }
+  | LBRACE; e = expr_body; PIPE; l = separated_nonempty_list(COMMA, record_expr_entry); RBRACE { Expr.make_extensions e l }
 
 expr_variant_atom:
   | s = UPPER_IDENT { Expr.make_variant s (Expr.make_record []) }
 
-rev_case_entries:
-  | e = case_entry { [e] }
-  | l = rev_case_entries; e = case_entry { e :: l }
-
 case_entry:
   | PIPE; p = pattern; ARROW; e = expr_body { (p, e) }
 
-rev_comma_sequence(item):
-  | { [] }
-  | i = item { [i] }
-  | items = rev_comma_sequence(item); COMMA; i = item { i :: items }
-
-comma_sequence(item):
-  | rev_items = rev_comma_sequence(item) { List.rev rev_items }
-
-brace_list(entry):
-  | LBRACE; vs = comma_sequence(entry); RBRACE { vs }
-
 record_expr:
-  | l = brace_list(record_expr_entry) { l }
+  | l = delimited(LBRACE, separated_list(COMMA, record_expr_entry), RBRACE) { l }
 
 record_expr_entry:
   | k = LOWER_IDENT; EQUALS; v = expr { (k, v) }
   | k = LOWER_IDENT { (k, Expr.make_var k) }
 
 record_pattern:
-  | l = brace_list(record_pattern_entry) { Slick_ast.Pattern.Record l }
+  | l = delimited(LBRACE, separated_list(COMMA, record_pattern_entry), RBRACE) { Slick_ast.Pattern.Record l }
 
 record_pattern_entry:
   | k = LOWER_IDENT { (k, Slick_ast.Pattern.Var k) }
