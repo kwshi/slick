@@ -1,11 +1,12 @@
 open Containers
 open Fun
+open Slick_core
 
 let vals =
-  let get_int_exn = Val.Get.Exn.primitive %> Val.Primitive.Get.Exn.int in
+  let get_int_exn = Value.Get.Exn.primitive %> Value.Primitive.Get.Exn.int in
   let bop in_t get out_t make name f =
     ( name
-    , (let open Val in
+    , (let open Value in
       Function
         (fun a ->
           Function
@@ -19,18 +20,18 @@ let vals =
   let int_bop =
     bop
       Type.(Primitive Int)
-      (Val.Get.Exn.primitive %> Val.Primitive.Get.Exn.int)
+      (Value.Get.Exn.primitive %> Value.Primitive.Get.Exn.int)
       Type.(Primitive Int)
-      (fun n -> Val.Primitive (Val.Primitive.Int n))
+      (fun n -> Value.Primitive (Value.Primitive.Int n))
   in
   let int_comp =
     bop
       Type.(Primitive Int)
-      (Val.Get.Exn.primitive %> Val.Primitive.Get.Exn.int)
+      (Value.Get.Exn.primitive %> Value.Primitive.Get.Exn.int)
       Type.bool
-      Val.Make.bool
+      Value.Make.bool
   in
-  let bool_bop = bop Type.bool Val.Get.Exn.bool Type.bool Val.Make.bool in
+  let bool_bop = bop Type.bool Value.Get.Exn.bool Type.bool Value.Make.bool in
   [ int_bop "+" Z.add
   ; int_bop "-" Z.sub
   ; int_bop "*" Z.mul
@@ -45,24 +46,24 @@ let vals =
   ; int_comp "!=" (fun a b -> not @@ Z.equal a b)
   ; bool_bop "&&" ( && )
   ; bool_bop "||" ( || )
-  ; ("true", Val.Make.bool true, Type.bool)
-  ; ("false", Val.Make.bool false, Type.bool)
+  ; ("true", Value.Make.bool true, Type.bool)
+  ; ("false", Value.Make.bool false, Type.bool)
   ; ( "$-"
-    , (let open Val in
+    , (let open Value in
       Function (fun v -> Primitive (Int (Z.neg @@ get_int_exn v))))
     , let open Type in
       Function (Primitive Int, Primitive Int) )
   ; ( "print"
-    , (let open Val in
+    , (let open Value in
       Function
-        ( Val.Get.Exn.primitive
-        %> Val.Primitive.Get.Exn.str
+        ( Value.Get.Exn.primitive
+        %> Value.Primitive.Get.Exn.str
         %> print_endline
-        %> const (Val.Record []) ))
+        %> const (Value.Record []) ))
     , let open Type in
       Function (Primitive String, unit) )
   ; ( "++"
-    , (let open Val in
+    , (let open Value in
       Function
         (fun a ->
           Function
@@ -78,6 +79,6 @@ let vals =
 
 let scope, ctx =
   vals
-  |> List.map (fun (n, v, t) -> ((n, v), Ctx.Var (n, t)))
+  |> List.map (fun (n, v, t) -> ((n, v), Slick_core.Context.Var (n, t)))
   |> List.split
-  |> Pair.map Scope.of_list Ctx.of_list
+  |> Pair.map Scope.of_list Slick_core.Context.of_list

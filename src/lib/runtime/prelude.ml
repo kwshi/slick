@@ -20,4 +20,4 @@ let prelude =
        *)
   ]
   |> List.map (Pair.map2 parse_string)
-  |> Module.eval
+  |> Slick_core.Module.eval (Builtin.scope, Builtin.ctx)

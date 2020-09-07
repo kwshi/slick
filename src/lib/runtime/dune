@@ -1,0 +1,4 @@
+(library
+ (name slick_runtime)
+ (public_name slick.runtime)
+ (libraries slick.core slick.parser containers zarith))

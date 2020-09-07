@@ -1,0 +1,6 @@
+(library
+ (name slick_core)
+ (public_name slick.core)
+ (preprocess
+  (pps ppx_deriving.show ppx_deriving.eq ppx_deriving.ord))
+ (libraries slick.ast containers zarith fmt))

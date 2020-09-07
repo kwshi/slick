@@ -9,4 +9,3 @@ let eval =
       let t, _ = Typing.infer_top ctx e in
       let v = Eval.evaluate sc e in
       (Scope.add s v sc, Ctx.(append_ctx [ Var (s, t.tp) ] ctx)))
-    (Builtin.scope, Builtin.ctx)
