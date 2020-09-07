@@ -2,8 +2,6 @@
 
 module Expr = Slick_ast.Expr.Untyped
 
-module Slick = struct end
-
 %}
 
 %token <string> LOWER_IDENT UPPER_IDENT
@@ -56,10 +54,9 @@ function_type:
 
 *)
 
-
 let module_entry :=
-  | DEF; s = LOWER_IDENT; args = list(pattern_atom); COLON; e = expr; { (s, Expr.make_function_curried args e) }
-
+  | DEF; s = LOWER_IDENT; args = list(pattern_atom); COLON; e = expr;
+    { (s, Expr.make_function_curried args e) }
 
 let repl :=
   | EOF; {Slick_ast.Repl.Empty}
@@ -74,18 +71,18 @@ let pattern :=
 
 let pattern_atom :=
   | v = UPPER_IDENT; { Slick_ast.Pattern.Variant (v, Slick_ast.Pattern.Record []) }
-  | ~ = record_pattern; <>
+  | LBRACE; ~ = separated_list(COMMA, record_pattern_entry); RBRACE; <Slick_ast.Pattern.Record>
   | ~ = literal_pattern; <Slick_ast.Pattern.Literal>
   | ~ = LOWER_IDENT; <Slick_ast.Pattern.Var>
   | LPAREN; ~ = pattern; RPAREN; <>
 
 let expr :=
   | v = LOWER_IDENT; WALRUS; e = expr_body; SEMICOLON; b = expr; { Expr.make_assign v e b }
-  | ~ = function_expr; <>
+  | BACKSLASH; p = pattern; ARROW; e = expr; { Expr.make_function p e }
   | CASE; e = expr_body; COLON; l = nonempty_list(case_entry); { Expr.make_case e l }
   | ~ = expr_body; <>
 
-let expr_body :=
+let expr_body ==
   | ~ = expr_bool_bop; <>
 
 let expr_bool_bop :=
@@ -140,7 +137,7 @@ let expr_app :=
   | ~ = expr_atom; <>
 
 let expr_atom :=
-  | ~ = record_expr; <Expr.make_record>
+  | LBRACE; ~ = separated_list(COMMA, record_expr_entry); RBRACE; <Expr.make_record>
   | ~ = LOWER_IDENT; <Expr.make_var>
   | r = expr_atom; DOT; l = LOWER_IDENT; { Expr.make_projection r l }
   | ~ = expr_lit; <Expr.make_literal>
@@ -157,15 +154,9 @@ let expr_variant_atom ==
 let case_entry ==
   | PIPE; ~ = pattern; ARROW; ~ = expr_body; <>
 
-let record_expr ==
-  | LBRACE; ~ = separated_list(COMMA, record_expr_entry); RBRACE; <>
-
 let record_expr_entry :=
   | ~ = LOWER_IDENT; EQUALS; ~ = expr; <>
   | k = LOWER_IDENT; { (k, Expr.make_var k) }
-
-let record_pattern ==
-  | LBRACE; ~ = separated_list(COMMA, record_pattern_entry); RBRACE; <Slick_ast.Pattern.Record>
 
 let record_pattern_entry :=
   | k = LOWER_IDENT; { (k, Slick_ast.Pattern.Var k) }
@@ -174,6 +165,3 @@ let record_pattern_entry :=
 let literal_pattern :=
   | ~ = STRING; <Slick_ast.Pattern.String>
   | ~ = INT;    <Slick_ast.Pattern.Int>
-
-let function_expr ==
-  | BACKSLASH; p = pattern; ARROW; e = expr; { Expr.make_function p e }
