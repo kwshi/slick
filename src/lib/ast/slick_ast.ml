@@ -60,7 +60,7 @@ module Expr = struct
 
     let make_function pat expr = make @@ Function (pat, expr)
 
-    let make_function_with_args args e = List.fold_right make_function args e
+    let make_function_curried args e = List.fold_right make_function args e
 
     let make_application e1 e2 = make @@ Application (e1, e2)
 

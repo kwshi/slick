@@ -73,7 +73,7 @@ rev_module_entries:
   | m = rev_module_entries; e = module_entry { e :: m }
 
 module_entry:
-  | DEF; s = LOWER_IDENT; args = rev_def_args; COLON; e = expr { (s, Expr.make_function_with_args (List.rev args) e) }
+  | DEF; s = LOWER_IDENT; args = rev_def_args; COLON; e = expr { (s, Expr.make_function_curried (List.rev args) e) }
 
 
 rev_def_args:

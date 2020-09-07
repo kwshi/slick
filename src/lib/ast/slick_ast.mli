@@ -45,7 +45,7 @@ module Expr : sig
 
     val make_function : Pattern.t -> t -> t
 
-    val make_function_with_args : Pattern.t list -> t -> t
+    val make_function_curried : Pattern.t list -> t -> t
 
     val make_application : t -> t -> t
 
