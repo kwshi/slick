@@ -109,31 +109,3 @@ module Repl = struct
     | Cmd of string * string
 end
 
-let rec match_pat = function
-  | Pattern.Var var, v ->
-      Some [ (var, v) ]
-  | Pattern.Record fields, Val.Record r ->
-      List.fold_right
-        (fun (lbl, pat') accum_opt ->
-          match (accum_opt, Val.Record.get lbl r) with
-          | Some accum, Some v ->
-            ( match match_pat (pat', v) with
-            | Some bindings ->
-                Some (bindings @ accum)
-            | None ->
-                None )
-          | _ ->
-              None)
-        fields
-        (Some [])
-  | Pattern.Variant (lbl, pat'), Val.Variant (lbl', v)
-    when String.(equal lbl lbl') ->
-      match_pat (pat', v)
-  | Pattern.Literal (Int i), Val.Primitive (Val.Primitive.Int i')
-    when Z.equal i i' ->
-      Some []
-  | Pattern.Literal (String s), Val.Primitive (Val.Primitive.String s')
-    when String.(equal s s') ->
-      Some []
-  | _ ->
-      None

@@ -130,3 +130,32 @@ module Get = struct
     let bool = Option.get_exn % bool
   end
 end
+
+let rec match_pat = function
+  | Ast.Pattern.Var var, v ->
+      Some [ (var, v) ]
+  | Ast.Pattern.Record fields, Record r ->
+      List.fold_right
+        (fun (lbl, pat') accum_opt ->
+          match (accum_opt, Record.get lbl r) with
+          | Some accum, Some v ->
+            ( match match_pat (pat', v) with
+            | Some bindings ->
+                Some (bindings @ accum)
+            | None ->
+                None )
+          | _ ->
+              None)
+        fields
+        (Some [])
+  | Ast.Pattern.Variant (lbl, pat'), Variant (lbl', v)
+    when String.(equal lbl lbl') ->
+      match_pat (pat', v)
+  | Ast.Pattern.Literal (Int i), Primitive (Primitive.Int i')
+    when Z.equal i i' ->
+      Some []
+  | Ast.Pattern.Literal (String s), Primitive (Primitive.String s')
+    when String.(equal s s') ->
+      Some []
+  | _ ->
+      None

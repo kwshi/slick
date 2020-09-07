@@ -2,7 +2,7 @@ open Containers
 open Fun
 
 let prelude =
-  let parse_string = Lexing.from_string %> Parser.prog Lexer.read in
+  let parse_string = Lexing.from_string %> Slick_parser.Parser.prog Slick_parser.Lexer.read in
   [ ("fix", {|\f -> (\x -> f (\v -> x x v)) (\x -> f (\v -> x x v))|})
     (*& "or"
       , {|\a -> \b -> case a | True -> a | False -> (case b | True -> b | False -> b)|}

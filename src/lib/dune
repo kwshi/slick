@@ -3,9 +3,5 @@
  (public_name slick)
  (preprocess
   (pps ppx_deriving.show ppx_deriving.eq ppx_deriving.ord))
- (libraries containers fmt zarith))
+ (libraries containers fmt zarith slick.ast slick.parser))
 
-(ocamllex lexer)
-
-(menhir
- (modules parser))

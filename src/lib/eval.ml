@@ -11,7 +11,7 @@ let rec evaluate (sc : Val.t Scope.t) expr =
   | Function (pat, e) ->
       Function
         (fun value ->
-          match Ast.match_pat (pat, value) with
+          match Val.match_pat (pat, value) with
           | Some pat_bindings ->
               evaluate (Scope.add_list sc pat_bindings) e
           | None ->
@@ -43,7 +43,7 @@ let rec evaluate (sc : Val.t Scope.t) expr =
       let sc', case_inner =
         List.find_map
           (fun (pat, case_inner) ->
-            match Ast.match_pat (pat, e') with
+            match Val.match_pat (pat, e') with
             | Some pat_bindings ->
                 Some (Scope.add_list sc pat_bindings, case_inner)
             | None ->
