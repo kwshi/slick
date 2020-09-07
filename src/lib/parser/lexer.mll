@@ -64,7 +64,7 @@ rule read =
   | nonnegative_digits { INT (Lexing.lexeme lexbuf |> Z.of_string) } 
   | lower_ident { LOWER_IDENT (Lexing.lexeme lexbuf) }
   | upper_ident { UPPER_IDENT (Lexing.lexeme lexbuf) }
-  | _ { raise (Ast.SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) } 
+  | _ { raise (Slick_ast.SyntaxError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) } 
   | eof { EOF }
 
 and read_string buf =

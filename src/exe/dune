@@ -1,4 +1,4 @@
 (executable
  (name main)
  (public_name slick)
- (libraries cmdliner containers linenoise slick))
+ (libraries slick.core slick.parser slick.ast slick.runtime cmdliner containers linenoise))

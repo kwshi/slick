@@ -5,7 +5,7 @@ let rec evaluate (sc : Val.t Scope.t) expr =
   let apply f a = Val.Get.Exn.function_ f @@ evaluate sc a in
   let apply_to a f = apply f a in
 
-  match expr.Ast.Expr.expr with
+  match expr.Slick_ast.Expr.expr with
   | Assign (v, e, b) ->
       evaluate (Scope.add v (evaluate sc e) sc) b
   | Function (pat, e) ->

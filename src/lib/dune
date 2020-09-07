@@ -1,5 +1,0 @@
-(library
- (name slick)
- (public_name slick)
- (libraries containers fmt zarith slick.ast slick.parser))
-

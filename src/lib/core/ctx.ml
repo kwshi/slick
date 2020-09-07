@@ -177,8 +177,8 @@ and apply_ctx_tail ctx t =
 
 
 let apply_ctx_expr ctx =
-  let open Ast in
-  let rec go (annotated : Type.t Ast.Expr.t) : Type.t Ast.Expr.t =
+  let open Slick_ast in
+  let rec go (annotated : Type.t Expr.t) : Type.t Expr.t =
     let tp = apply_ctx ctx annotated.tp in
     let expr =
       match annotated.expr with

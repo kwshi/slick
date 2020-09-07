@@ -6,8 +6,8 @@ let pp =
   hbox
     (pair
        ~sep:(sp ++ styled `Faint (hbox (any ":@ ")))
-       (styled (`Fg (`Hi `Cyan)) Slick.Value.pp)
-       (styled `Faint Slick.Type.pp))
+       (styled (`Fg (`Hi `Cyan)) Slick_core.Value.pp)
+       (styled `Faint Slick_core.Type.pp))
   ++ const Format.pp_print_newline ()
 
 
@@ -17,13 +17,13 @@ let rec repl (sc, ctx) : unit =
     (styled (`Fg (`Hi `Red)) (hovbox pp) ++ Format.pp_print_newline) stderr () ;
     repl (sc, ctx)
   in
-  let eval e : Slick.Value.t * Slick.Type.t =
-    let expr, _ = Slick.Typing.infer_top ctx e in
-    (Slick.Eval.evaluate sc expr, expr.Slick.Ast.Expr.tp)
+  let eval e : Slick_core.Value.t * Slick_core.Type.t =
+    let expr, _ = Slick_core.Typing.infer_top ctx e in
+    (Slick_core.Eval.evaluate sc expr, expr.Slick_ast.Expr.tp)
   in
-  let eval_def s e : Slick.Value.t * Slick.Type.t =
-    let expr, _ = Slick.Typing.infer_def ctx s e in
-    (Slick.Eval.evaluate sc expr, expr.Slick.Ast.Expr.tp)
+  let eval_def s e : Slick_core.Value.t * Slick_core.Type.t =
+    let expr, _ = Slick_core.Typing.infer_def ctx s e in
+    (Slick_core.Eval.evaluate sc expr, expr.Slick_ast.Expr.tp)
   in
   match LNoise.linenoise "slick> " with
   | None ->
@@ -40,46 +40,46 @@ let rec repl (sc, ctx) : unit =
       LNoise.history_add input |> ignore ;
       ( try
           Lexing.from_string input
-          |> Slick.Parser.repl Slick.Lexer.read
+          |> Slick_parser.Parser.repl Slick_parser.Lexer.read
           |> function
-          | Slick.Ast.Repl.Empty ->
+          | Slick_ast.Repl.Empty ->
               repl (sc, ctx)
-          | Slick.Ast.Repl.Expr e ->
+          | Slick_ast.Repl.Expr e ->
               pp Fmt.stdout @@ eval e ;
               repl (sc, ctx)
-          | Slick.Ast.Repl.Def (s, e) ->
+          | Slick_ast.Repl.Def (s, e) ->
               let v, t = eval_def s e in
               pp Fmt.stdout @@ (v, t) ;
               repl
-                ( Slick.Scope.add s v sc
-                , Slick.Context.append_ctx [ Slick.Context.Var (s, t) ] ctx )
-          | Slick.Ast.Repl.Cmd ("load", f) ->
+                ( Slick_core.Scope.add s v sc
+                , Slick_core.Context.append_ctx [ Slick_core.Context.Var (s, t) ] ctx )
+          | Slick_ast.Repl.Cmd ("load", f) ->
               if Sys.file_exists f
               then (
                 let ch = open_in f in
                 let sc', ctx' =
                   Lexing.from_channel ch
-                  |> Slick.Parser.module_ Slick.Lexer.read
-                  |> Slick.Module.eval
+                  |> Slick_parser.Parser.module_ Slick_parser.Lexer.read
+                  |> Slick_core.Module.eval (sc, ctx)
                 in
                 close_in ch ;
                 repl
-                  ( Slick.Scope.union (fun _ _ b -> Some b) sc sc'
-                  , Slick.Context.append_ctx ctx'.context ctx ) )
+                  ( Slick_core.Scope.union (fun _ _ b -> Some b) sc sc'
+                  , Slick_core.Context.append_ctx ctx'.context ctx ) )
               else
                 err
                 @@ Fmt.(
                      any "file@ `"
                      ++ const string f
                      ++ any "`@ does@ not@ exist!")
-          | Slick.Ast.Repl.Cmd (c, _) ->
+          | Slick_ast.Repl.Cmd (c, _) ->
               err
               @@ Fmt.(
                    styled `Bold (any "invalid@ command:@ ") ++ const string c)
         with
-      | Slick.Ast.SyntaxError s ->
+      | Slick_ast.SyntaxError s ->
           err @@ Fmt.(styled `Bold (any "syntax@ error:@ ") ++ const string s)
-      | Slick.Parser.Error ->
+      | Slick_parser.Parser.Error ->
           err @@ Fmt.(styled `Bold @@ any "syntax error")
       | Failure s ->
           err @@ Fmt.(const string s) )
@@ -91,4 +91,4 @@ let repl () =
   LNoise.catch_break true ;
   LNoise.set_multiline true ;
   Logo.pp Fmt.stderr () ;
-  repl Slick.Prelude.prelude
+  repl Slick_runtime.Prelude.prelude

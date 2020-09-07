@@ -131,10 +131,12 @@ module Get = struct
   end
 end
 
-let rec match_pat = function
-  | Ast.Pattern.Var var, v ->
+let rec match_pat =
+  let module Pat = Slick_ast.Pattern in
+  function
+  | Pat.Var var, v ->
       Some [ (var, v) ]
-  | Ast.Pattern.Record fields, Record r ->
+  | Pat.Record fields, Record r ->
       List.fold_right
         (fun (lbl, pat') accum_opt ->
           match (accum_opt, Record.get lbl r) with
@@ -148,13 +150,13 @@ let rec match_pat = function
               None)
         fields
         (Some [])
-  | Ast.Pattern.Variant (lbl, pat'), Variant (lbl', v)
+  | Pat.Variant (lbl, pat'), Variant (lbl', v)
     when String.(equal lbl lbl') ->
       match_pat (pat', v)
-  | Ast.Pattern.Literal (Int i), Primitive (Primitive.Int i')
+  | Pat.Literal (Int i), Primitive (Primitive.Int i')
     when Z.equal i i' ->
       Some []
-  | Ast.Pattern.Literal (String s), Primitive (Primitive.String s')
+  | Pat.Literal (String s), Primitive (Primitive.String s')
     when String.(equal s s') ->
       Some []
   | _ ->

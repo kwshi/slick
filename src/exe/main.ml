@@ -12,8 +12,8 @@ let main = function
   | Some s ->
       let ch = open_in s in
       Lexing.from_channel ch
-      |> Slick.Parser.module_ Slick.Lexer.read
-      |> Slick.Module.eval
+      |> Slick_parser.Parser.module_ Slick_parser.Lexer.read
+      |> Slick_core.Module.eval Slick_runtime.Builtin.(scope, ctx)
       |> ignore ;
       close_in ch
 

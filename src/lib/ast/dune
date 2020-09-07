@@ -1,4 +1,4 @@
 (library
- (name ast)
+ (name slick_ast)
  (public_name slick.ast)
  (libraries containers zarith))

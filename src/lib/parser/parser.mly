@@ -1,7 +1,7 @@
 %{
 open Containers
 
-module Expr = Ast.Expr.Untyped
+module Expr = Slick_ast.Expr.Untyped
 
 module Slick = struct end
 
@@ -43,9 +43,9 @@ module Slick = struct end
 %token WALRUS
 %token EOF
 
-%start <Ast.Expr.Untyped.t> prog
-%start <unit Ast.Module.t> module_
-%start <unit Ast.Repl.t> repl
+%start <Slick_ast.Expr.Untyped.t> prog
+%start <unit Slick_ast.Module.t> module_
+%start <unit Slick_ast.Repl.t> repl
 
 %%
 
@@ -81,21 +81,21 @@ rev_def_args:
   | args = rev_def_args; a = pattern_atom { a :: args }
 
 repl:
-  | EOF { Ast.Repl.Empty }
-  | e = expr; EOF { Ast.Repl.Expr e }
-  | e = module_entry; EOF { let s, e = e in Ast.Repl.Def (s, e) }
-  | s = LOWER_IDENT; WALRUS; e = expr; EOF { Ast.Repl.Def (s, e) }
-  | COLON; c = LOWER_IDENT; s = STRING { Ast.Repl.Cmd (c, s) }
+  | EOF { Slick_ast.Repl.Empty }
+  | e = expr; EOF { Slick_ast.Repl.Expr e }
+  | e = module_entry; EOF { let s, e = e in Slick_ast.Repl.Def (s, e) }
+  | s = LOWER_IDENT; WALRUS; e = expr; EOF { Slick_ast.Repl.Def (s, e) }
+  | COLON; c = LOWER_IDENT; s = STRING { Slick_ast.Repl.Cmd (c, s) }
 
 pattern:
-  | lbl = UPPER_IDENT; p = pattern_atom { Ast.Pattern.Variant (lbl, p)}
+  | lbl = UPPER_IDENT; p = pattern_atom { Slick_ast.Pattern.Variant (lbl, p)}
   | p = pattern_atom { p }
 
 pattern_atom:
-  | v = UPPER_IDENT { Ast.Pattern.Variant (v, Ast.Pattern.Record []) }
+  | v = UPPER_IDENT { Slick_ast.Pattern.Variant (v, Slick_ast.Pattern.Record []) }
   | p = record_pattern { p }
   | p = literal_pattern { p }
-  | v = LOWER_IDENT { Ast.Pattern.Var v }
+  | v = LOWER_IDENT { Slick_ast.Pattern.Var v }
   | LPAREN; p = pattern; RPAREN { p }
 
 expr:
@@ -152,7 +152,7 @@ expr_app:
 expr_atom:
   | LPAREN; e = expr; RPAREN { e }
   | r = record_expr { Expr.make_record r }
-  | v = LOWER_IDENT { if String.equal v "_" then raise @@ Ast.SyntaxError "`_` cannot be used as variable" else Expr.make_var v }
+  | v = LOWER_IDENT { if String.equal v "_" then raise @@ Slick_ast.SyntaxError "`_` cannot be used as variable" else Expr.make_var v }
   | r = expr_atom; DOT; l = LOWER_IDENT { Expr.make_projection r l }
   | n = INT { Expr.(make_literal (Int n)) }
   | s = STRING { Expr.(make_literal (String s))}
@@ -187,17 +187,17 @@ record_expr_entry:
   | k = LOWER_IDENT { (k, Expr.make_var k) }
 
 record_pattern:
-  | l = brace_list(record_pattern_entry) { Ast.Pattern.Record l }
+  | l = brace_list(record_pattern_entry) { Slick_ast.Pattern.Record l }
 
 record_pattern_entry:
-  | k = LOWER_IDENT { (k, Ast.Pattern.Var k) }
+  | k = LOWER_IDENT { (k, Slick_ast.Pattern.Var k) }
   | k = LOWER_IDENT; EQUALS; p = pattern; { (k, p) }
   (* No need for parens inside of a record *)
 
 
 literal_pattern:
-  | n = STRING { Ast.Pattern.Literal (String n)}
-  | i = INT { Ast.Pattern.Literal (Int i)}
+  | n = STRING { Slick_ast.Pattern.Literal (String n)}
+  | i = INT { Slick_ast.Pattern.Literal (Int i)}
 
 function_expr:
   | BACKSLASH; p = pattern; ARROW; e = expr { Expr.make_function p e }

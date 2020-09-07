@@ -273,16 +273,16 @@ and infer_top ctx annotated =
   (close_expr ctx inferred, ctx)
 
 
-and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
+and infer ctx (annotated : Slick_ast.Expr.Untyped.t) : Type.t Slick_ast.Expr.t * Ctx.t =
   (* print_string "infer:\n";
    * print_ctx ctx; *)
-  match annotated.Ast.Expr.expr with
+  match annotated.Slick_ast.Expr.expr with
   (* Var  *)
-  | Ast.Expr.Var v ->
+  | Slick_ast.Expr.Var v ->
       let tp = Ctx.lookup_var v ctx in
-      ({ Ast.Expr.expr = Var v; tp }, ctx)
+      ({ Slick_ast.Expr.expr = Var v; tp }, ctx)
   (* RcdI => *)
-  | Ast.Expr.Record r ->
+  | Slick_ast.Expr.Record r ->
       let ctx, inferred_rcd =
         List.fold_map
           (fun ctx (label, e) ->
@@ -294,11 +294,11 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
       ( { expr = Record inferred_rcd
         ; tp =
             Record
-              (List.map (Pair.map2 (fun e -> e.Ast.Expr.tp)) inferred_rcd, None)
+              (List.map (Pair.map2 (fun e -> e.Slick_ast.Expr.tp)) inferred_rcd, None)
         }
       , ctx )
   (* ->I => *)
-  | Ast.Expr.Function (pat, e) ->
+  | Slick_ast.Expr.Function (pat, e) ->
       let arg_ev_tp, arg_ev_ce, _, ctx = Ctx.fresh_evar ctx in
       let ret_ev_tp, ret_ev_ce, _, ctx = Ctx.fresh_evar ctx in
       let marker = Ctx.Marker arg_ev_ce in
@@ -308,8 +308,8 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
       let fun_expr =
         Ctx.apply_ctx_expr
           ctx
-          { Ast.Expr.expr = Ast.Expr.Function (pat, e_checked)
-          ; Ast.Expr.tp = Type.Function (arg_ev_tp, ret_ev_tp)
+          { Slick_ast.Expr.expr = Slick_ast.Expr.Function (pat, e_checked)
+          ; Slick_ast.Expr.tp = Type.Function (arg_ev_tp, ret_ev_tp)
           }
       in
       let quantified_fun_expr =
@@ -324,7 +324,7 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
        * print_tp quantified_fun_expr.tp; *)
       (quantified_fun_expr, Ctx.drop_ctx_from marker ctx)
   (* ->E *)
-  | Ast.Expr.Application (e1, e2) ->
+  | Slick_ast.Expr.Application (e1, e2) ->
       let e1_inferred, ctx = infer ctx e1 in
       let e1_inferred' = Ctx.apply_ctx_expr ctx e1_inferred in
       (* print_debug "infer app: ";
@@ -332,63 +332,63 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
        * print_ctx ctx; *)
       let e2_inferred, output_tp, ctx = infer_app ctx e1_inferred'.tp e2 in
       ({ expr = Application (e1_inferred', e2_inferred); tp = output_tp }, ctx)
-  | Ast.Expr.Bop (o, a, b) ->
+  | Slick_ast.Expr.Bop (o, a, b) ->
       (* We probably should just desugar this to two applications and never have a Bop in the AST *)
       let t = Ctx.lookup_var o ctx in
       let a', t', ctx = infer_app ctx t a in
       let b', t'', ctx = infer_app ctx (Ctx.apply_ctx ctx t') b in
       (* let b', tp, ctx'' = infer_app ctx a''.tp b in *)
       ({ expr = Bop (o, a', b'); tp = t'' }, ctx)
-  | Ast.Expr.Uop (o, a) ->
+  | Slick_ast.Expr.Uop (o, a) ->
       let t = Ctx.lookup_var o ctx in
       let a', t', ctx' = infer_app ctx t a in
       ({ expr = Uop (o, a'); tp = t' }, ctx')
-  | Ast.Expr.Variant (lbl, e) ->
+  | Slick_ast.Expr.Variant (lbl, e) ->
       let e_inferred, ctx = infer ctx e in
       let e_inferred' = Ctx.apply_ctx_expr ctx e_inferred in
       let open_tail, open_tail_ce, _, ctx = Ctx.fresh_row_evar ctx in
       let ctx = Ctx.append_ctx [ open_tail_ce ] ctx in
-      ( { expr = Ast.Expr.Variant (lbl, e_inferred')
+      ( { expr = Slick_ast.Expr.Variant (lbl, e_inferred')
         ; tp = Type.Variant ([ (lbl, e_inferred'.tp) ], Some open_tail)
         }
       , ctx )
-  | Ast.Expr.Assign (var, e1, e2) ->
+  | Slick_ast.Expr.Assign (var, e1, e2) ->
       (* TODO for assignments that involve updates: check if var is in the context. if it is, check e1 against its type. otherwise, infer the type of e1 - and use that as var's assignment. *)
       let e1_inferred, ctx = infer ctx e1 in
       let e1_inferred' = Ctx.apply_ctx_expr ctx e1_inferred in
       let var_assignment = Ctx.Var (var, e1_inferred'.tp) in
       let ctx = Ctx.append_ctx [ var_assignment ] ctx in
       let e2_inferred, ctx = infer ctx e2 in
-      ( { expr = Ast.Expr.Assign (var, e1_inferred', e2_inferred)
+      ( { expr = Slick_ast.Expr.Assign (var, e1_inferred', e2_inferred)
         ; tp = e2_inferred.tp
         }
       , Ctx.drop_ctx_from var_assignment ctx )
-  | Ast.Expr.Projection (e, lbl) ->
+  | Slick_ast.Expr.Projection (e, lbl) ->
       let e_inferred, ctx = infer ctx e in
       let e_inferred' = Ctx.apply_ctx_expr ctx e_inferred in
       let proj_tp, ctx = infer_proj ctx e_inferred'.tp lbl in
-      ({ expr = Ast.Expr.Projection (e_inferred', lbl); tp = proj_tp }, ctx)
-  | Ast.Expr.Extension (lbl, e1, e2) ->
+      ({ expr = Slick_ast.Expr.Projection (e_inferred', lbl); tp = proj_tp }, ctx)
+  | Slick_ast.Expr.Extension (lbl, e1, e2) ->
       let e1_inferred, ctx = infer ctx e1 in
       let e2_inferred, ctx = infer ctx e2 in
       let e2_inferred' = Ctx.apply_ctx_expr ctx e2_inferred in
       let ext_tp, ctx = infer_ext ctx (lbl, e1_inferred.tp) e2_inferred'.tp in
-      ( { expr = Ast.Expr.Extension (lbl, e1_inferred, e2_inferred')
+      ( { expr = Slick_ast.Expr.Extension (lbl, e1_inferred, e2_inferred')
         ; tp = ext_tp
         }
       , ctx )
-  | Ast.Expr.Literal l ->
-      ( { expr = Ast.Expr.Literal l
+  | Slick_ast.Expr.Literal l ->
+      ( { expr = Slick_ast.Expr.Literal l
         ; tp =
             Primitive
               ( match l with
-              | Ast.Expr.Int _ ->
+              | Slick_ast.Expr.Int _ ->
                   Int
-              | Ast.Expr.String _ ->
+              | Slick_ast.Expr.String _ ->
                   String )
         }
       , ctx )
-  | Ast.Expr.Case (input, cs) ->
+  | Slick_ast.Expr.Case (input, cs) ->
       let input_inferred, ctx = infer ctx input in
       let input_inferred' = Ctx.apply_ctx_expr ctx input_inferred in
       let input_tp = input_inferred'.tp in
@@ -410,7 +410,7 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
       in
       let resolved_input_tp = Ctx.apply_ctx ctx input_inferred'.tp in
       let has_var_pat =
-        List.exists (function Ast.Pattern.Var _, _ -> true | _ -> false) cs
+        List.exists (function Slick_ast.Pattern.Var _, _ -> true | _ -> false) cs
       in
       let ctx =
         match (resolved_input_tp, has_var_pat) with
@@ -428,7 +428,7 @@ and infer ctx (annotated : Ast.Expr.Untyped.t) : Type.t Ast.Expr.t * Ctx.t =
       let case_expr =
         Ctx.apply_ctx_expr
           ctx
-          { expr = Ast.Expr.Case (input_inferred', cs_inferred)
+          { expr = Slick_ast.Expr.Case (input_inferred', cs_inferred)
           ; tp = ret_ev_tp
           }
       in
@@ -442,7 +442,7 @@ and check ctx annotated tp =
   (* print_string "check:\n";
    * print_tp tp;
    * print_ctx ctx; *)
-  let open Ast in
+  let open Slick_ast in
   match (annotated.expr, tp) with
   (* forall I *)
   | _, Forall (tv, tp') ->
@@ -477,7 +477,7 @@ and check ctx annotated tp =
 
 
 and infer_pat ctx pattern =
-  let open Ast.Pattern in
+  let open Slick_ast.Pattern in
   match pattern with
   | Var v ->
       let ev_tp, ev_ce, _, ctx = Ctx.fresh_evar ctx in
