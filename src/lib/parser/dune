@@ -6,5 +6,6 @@
 (ocamllex (modules lexer))
 
 (menhir
- (modules parser)
+ (modules parser header expr pattern tokens)
+ (merge_into parser)
  (flags --explain --dump))
