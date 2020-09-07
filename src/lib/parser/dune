@@ -1,7 +1,7 @@
 (library
  (name slick_parser)
  (public_name slick.parser)
- (libraries slick.ast containers zarith))
+ (libraries slick.ast containers zarith fmt))
 
 (ocamllex (modules lexer))
 

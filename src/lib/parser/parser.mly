@@ -152,7 +152,7 @@ expr_app:
 expr_atom:
   | LPAREN; e = expr; RPAREN { e }
   | r = record_expr { Expr.make_record r }
-  | v = LOWER_IDENT { if String.equal v "_" then raise @@ Slick_ast.SyntaxError "`_` cannot be used as variable" else Expr.make_var v }
+  | v = LOWER_IDENT { Expr.make_var v }
   | r = expr_atom; DOT; l = LOWER_IDENT { Expr.make_projection r l }
   | n = INT { Expr.(make_literal (Int n)) }
   | s = STRING { Expr.(make_literal (String s))}

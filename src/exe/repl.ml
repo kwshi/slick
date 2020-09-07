@@ -77,8 +77,8 @@ let rec repl (sc, ctx) : unit =
               @@ Fmt.(
                    styled `Bold (any "invalid@ command:@ ") ++ const string c)
         with
-      | Slick_ast.SyntaxError s ->
-          err @@ Fmt.(styled `Bold (any "syntax@ error:@ ") ++ const string s)
+      | Slick_parser.Err.Err e ->
+          err @@ Fmt.(styled `Bold (any "syntax@ error:@ ") ++ const Slick_parser.Err.pp e)
       | Slick_parser.Parser.Error ->
           err @@ Fmt.(styled `Bold @@ any "syntax error")
       | Failure s ->

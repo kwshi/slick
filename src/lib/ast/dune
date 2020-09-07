@@ -1,4 +1,6 @@
 (library
  (name slick_ast)
  (public_name slick.ast)
- (libraries containers zarith))
+ (libraries containers zarith)
+ (modules_without_implementation label var_name)
+ )

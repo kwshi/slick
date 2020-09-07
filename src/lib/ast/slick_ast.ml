@@ -1,14 +1,5 @@
 open Containers
 
-exception SyntaxError of string
-
-type label = string
-
-let pp_label = Format.string
-
-type var_name = string
-
-let pp_var_name = Format.string
 
 (*
 module Type = struct
@@ -28,9 +19,9 @@ module Pattern = struct
     | Int of Z.t
 
   type t =
-    | Record of (label * t) list
-    | Variant of (label * t)
-    | Var of var_name
+    | Record of (Label.t * t) list
+    | Variant of (Label.t * t)
+    | Var of Var_name.t
     | Literal of literal
 end
 
@@ -42,18 +33,18 @@ module Expr = struct
   type 't raw_expr =
     | Bop of string * 't * 't
     | Uop of string * 't
-    | Assign of var_name * 't * 't
+    | Assign of Var_name.t * 't * 't
     | Function of (Pattern.t * 't)
     | Application of ('t * 't)
     | Record of 't record
-    | Projection of ('t * label)
-    | Extension of (label * 't * 't)
+    | Projection of ('t * Label.t)
+    | Extension of (Label.t * 't * 't)
     | Variant of (string * 't)
-    | Var of var_name
+    | Var of Var_name.t
     | Literal of literal
     | Case of ('t * (Pattern.t * 't) list)
 
-  and 'annotated_expr record = (label * 'annotated_expr) list
+  and 'annotated_expr record = (Label.t * 'annotated_expr) list
 
   and 'tp t =
     { tp : 'tp
@@ -67,7 +58,7 @@ module Expr = struct
 
     let make expr = { tp = (); expr }
 
-    let make_function v e = make @@ Function (v, e)
+    let make_function pat expr = make @@ Function (pat, expr)
 
     let make_function_with_args args e = List.fold_right make_function args e
 
@@ -99,6 +90,8 @@ end
 
 module Module = struct
   type 'tp t = (string * 'tp Expr.t) list
+
+  let make = Fun.id
 end
 
 module Repl = struct
@@ -108,4 +101,3 @@ module Repl = struct
     | Expr of 'tp Expr.t
     | Cmd of string * string
 end
-
