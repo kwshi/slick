@@ -42,8 +42,9 @@ module Slick = struct end
 
 %%
 
-prog:
-  | e = expr; EOF { e }
+let prog := ~ = expr; EOF; <>
+
+let module_ := ~ = list(module_entry); EOF; <>
 
 (*
 type_:
@@ -55,122 +56,124 @@ function_type:
 
 *)
 
-module_:
-  | m = list(module_entry); EOF { m }
 
-module_entry:
-  | DEF; s = LOWER_IDENT; args = list(pattern_atom); COLON; e = expr { (s, Expr.make_function_curried args e) }
+let module_entry :=
+  | DEF; s = LOWER_IDENT; args = list(pattern_atom); COLON; e = expr; { (s, Expr.make_function_curried args e) }
 
 
-repl:
-  | EOF { Slick_ast.Repl.Empty }
-  | e = expr; EOF { Slick_ast.Repl.Expr e }
-  | e = module_entry; EOF { let s, e = e in Slick_ast.Repl.Def (s, e) }
-  | s = LOWER_IDENT; WALRUS; e = expr; EOF { Slick_ast.Repl.Def (s, e) }
-  | COLON; c = LOWER_IDENT; s = STRING { Slick_ast.Repl.Cmd (c, s) }
+let repl :=
+  | EOF; {Slick_ast.Repl.Empty}
+  | ~ = expr; EOF; <Slick_ast.Repl.Expr>
+  | (~, ~) = module_entry; EOF; <Slick_ast.Repl.Def>
+  | ~ = LOWER_IDENT; WALRUS; ~ = expr; EOF; <Slick_ast.Repl.Def>
+  | COLON; ~ = LOWER_IDENT; ~ = STRING; <Slick_ast.Repl.Cmd>
 
-pattern:
-  | lbl = UPPER_IDENT; p = pattern_atom { Slick_ast.Pattern.Variant (lbl, p)}
-  | p = pattern_atom { p }
+let pattern :=
+  | ~ = UPPER_IDENT; ~ = pattern_atom; <Slick_ast.Pattern.Variant>
+  | ~ = pattern_atom; <>
 
-pattern_atom:
-  | v = UPPER_IDENT { Slick_ast.Pattern.Variant (v, Slick_ast.Pattern.Record []) }
-  | p = record_pattern { p }
-  | p = literal_pattern { p }
-  | v = LOWER_IDENT { Slick_ast.Pattern.Var v }
-  | LPAREN; p = pattern; RPAREN { p }
+let pattern_atom :=
+  | v = UPPER_IDENT; { Slick_ast.Pattern.Variant (v, Slick_ast.Pattern.Record []) }
+  | ~ = record_pattern; <>
+  | ~ = literal_pattern; <Slick_ast.Pattern.Literal>
+  | ~ = LOWER_IDENT; <Slick_ast.Pattern.Var>
+  | LPAREN; ~ = pattern; RPAREN; <>
 
-expr:
-  | v = LOWER_IDENT; WALRUS; e = expr_body; SEMICOLON; b = expr { Expr.make_assign v e b }
-  | f = function_expr { f }
-  | CASE; e = expr_body; COLON; l = nonempty_list(case_entry) { Expr.make_case e l }
-  | e = expr_body { e }
+let expr :=
+  | v = LOWER_IDENT; WALRUS; e = expr_body; SEMICOLON; b = expr; { Expr.make_assign v e b }
+  | ~ = function_expr; <>
+  | CASE; e = expr_body; COLON; l = nonempty_list(case_entry); { Expr.make_case e l }
+  | ~ = expr_body; <>
 
-expr_body:
-  | e = expr_bool_bop { e }
+let expr_body :=
+  | ~ = expr_bool_bop; <>
 
-expr_bool_bop:
-  | a = expr_bool_bop; o = bool_bop; b = expr_bool_bop { Expr.make_bop o a b }
-  | e = expr_comp { e }
+let expr_bool_bop :=
+  | a = expr_bool_bop; o = bool_bop; b = expr_bool_bop; { Expr.make_bop o a b }
+  | ~ = expr_comp; <>
 
-%inline bool_bop:
-  | AND { "&&" }
-  | OR { "||" }
+let bool_bop ==
+  | AND; { "&&" }
+  | OR; { "||" }
 
-expr_comp:
-  | a = expr_bop; c = comp; b = expr_bop { Expr.make_bop c a b }
-  | e = expr_bop { e }
+let expr_comp :=
+  | a = expr_bop; c = comp; b = expr_bop; { Expr.make_bop c a b }
+  | ~ = expr_bop; <>
 
-comp:
-  | LT { "<" }
-  | LE { "<=" }
-  | GT { ">" }
-  | GE { ">=" }
-  | EQ { "==" }
-  | NE { "!=" }
+let comp :=
+  | LT; { "<" }
+  | LE; { "<=" }
+  | GT; { ">" }
+  | GE; { ">=" }
+  | EQ; { "==" }
+  | NE; { "!=" }
 
-expr_bop:
-  | a = expr_bop; o = bop; b = expr_bop { Expr.make_bop o a b }
-  | e = expr_op_neg { e }
+let expr_bop :=
+  | a = expr_bop; o = bop; b = expr_bop; { Expr.make_bop o a b }
+  | ~ = expr_uop; <>
 
-%inline bop:
-  | PLUS { "+" }
-  | MINUS { "-" }
-  | ASTERISK { "*" }
-  | SLASH { "/" }
-  | MOD { "%" }
-  | POW { "**" }
-  | PLUS_PLUS { "++" }
+let bop ==
+  | PLUS; { "+" }
+  | MINUS; { "-" }
+  | ASTERISK; { "*" }
+  | SLASH; { "/" }
+  | MOD; { "%" }
+  | POW; { "**" }
+  | PLUS_PLUS; { "++" }
 
-expr_op_neg:
-  | MINUS; e = expr_app { Expr.make_uop "$-" e }
-  | e = expr_app { e }
-  | e = expr_variant { e }
+let expr_uop :=
+  | o = uop; e = expr_app; { Expr.make_uop o e }
+  | ~ = expr_app; <>
+  | ~ = expr_variant; <>
 
-expr_variant:
-  | s = UPPER_IDENT; e = expr_atom { Expr.make_variant s e }
-  | s = UPPER_IDENT; e = expr_variant_atom { Expr.make_variant s e }
-  | e = expr_variant_atom { e }
+let uop ==
+  | MINUS; { "$-" }
 
-expr_app:
-  | f = expr_app; e = expr_atom { Expr.make_application f e }
-  | f = expr_app; e = expr_variant_atom { Expr.make_application f e }
-  | e = expr_atom { e }
+let expr_variant :=
+  | s = UPPER_IDENT; e = expr_atom; { Expr.make_variant s e }
+  | s = UPPER_IDENT; e = expr_variant_atom; { Expr.make_variant s e }
+  | ~ = expr_variant_atom; <>
 
-expr_atom:
-  | LPAREN; e = expr; RPAREN { e }
-  | r = record_expr { Expr.make_record r }
-  | v = LOWER_IDENT { Expr.make_var v }
-  | r = expr_atom; DOT; l = LOWER_IDENT { Expr.make_projection r l }
-  | n = INT { Expr.(make_literal (Int n)) }
-  | s = STRING { Expr.(make_literal (String s))}
-  | LBRACE; e = expr_body; PIPE; l = separated_nonempty_list(COMMA, record_expr_entry); RBRACE { Expr.make_extensions e l }
+let expr_app :=
+  | f = expr_app; e = expr_atom; { Expr.make_application f e }
+  | f = expr_app; e = expr_variant_atom; { Expr.make_application f e }
+  | ~ = expr_atom; <>
 
-expr_variant_atom:
-  | s = UPPER_IDENT { Expr.make_variant s (Expr.make_record []) }
+let expr_atom :=
+  | ~ = record_expr; <Expr.make_record>
+  | ~ = LOWER_IDENT; <Expr.make_var>
+  | r = expr_atom; DOT; l = LOWER_IDENT; { Expr.make_projection r l }
+  | ~ = expr_lit; <Expr.make_literal>
+  | LBRACE; e = expr_body; PIPE; l = separated_nonempty_list(COMMA, record_expr_entry); RBRACE; { Expr.make_extensions e l }
+  | LPAREN; ~ = expr; RPAREN; <>
 
-case_entry:
-  | PIPE; p = pattern; ARROW; e = expr_body { (p, e) }
+let expr_lit :=
+  | ~ = STRING; <Slick_ast.Expr.String>
+  | ~ = INT; <Slick_ast.Expr.Int>
 
-record_expr:
-  | l = delimited(LBRACE, separated_list(COMMA, record_expr_entry), RBRACE) { l }
+let expr_variant_atom ==
+  | s = UPPER_IDENT; { Expr.make_variant s (Expr.make_record []) }
 
-record_expr_entry:
-  | k = LOWER_IDENT; EQUALS; v = expr { (k, v) }
-  | k = LOWER_IDENT { (k, Expr.make_var k) }
+let case_entry ==
+  | PIPE; ~ = pattern; ARROW; ~ = expr_body; <>
 
-record_pattern:
-  | l = delimited(LBRACE, separated_list(COMMA, record_pattern_entry), RBRACE) { Slick_ast.Pattern.Record l }
+let record_expr ==
+  | LBRACE; ~ = separated_list(COMMA, record_expr_entry); RBRACE; <>
 
-record_pattern_entry:
-  | k = LOWER_IDENT { (k, Slick_ast.Pattern.Var k) }
-  | k = LOWER_IDENT; EQUALS; p = pattern; { (k, p) }
-  (* No need for parens inside of a record *)
+let record_expr_entry :=
+  | ~ = LOWER_IDENT; EQUALS; ~ = expr; <>
+  | k = LOWER_IDENT; { (k, Expr.make_var k) }
 
+let record_pattern ==
+  | LBRACE; ~ = separated_list(COMMA, record_pattern_entry); RBRACE; <Slick_ast.Pattern.Record>
 
-literal_pattern:
-  | n = STRING { Slick_ast.Pattern.Literal (String n)}
-  | i = INT { Slick_ast.Pattern.Literal (Int i)}
+let record_pattern_entry :=
+  | k = LOWER_IDENT; { (k, Slick_ast.Pattern.Var k) }
+  | ~ = LOWER_IDENT; EQUALS; ~ = pattern; <>
 
-function_expr:
-  | BACKSLASH; p = pattern; ARROW; e = expr { Expr.make_function p e }
+let literal_pattern :=
+  | ~ = STRING; <Slick_ast.Pattern.String>
+  | ~ = INT;    <Slick_ast.Pattern.Int>
+
+let function_expr ==
+  | BACKSLASH; p = pattern; ARROW; e = expr; { Expr.make_function p e }
