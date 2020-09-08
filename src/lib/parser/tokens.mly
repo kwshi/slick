@@ -15,7 +15,7 @@
 
 %token PLUS MINUS
 %token PLUS_PLUS
-%token ASTERISK SLASH MOD
+%token ASTERISK SLASH SLASH_SLASH MOD
 %token GE GT LE LT EQ NE
 %token AND OR
 %token POW
@@ -25,7 +25,7 @@
 
 %left PLUS_PLUS
 %left PLUS MINUS
-%left ASTERISK SLASH MOD
+%left ASTERISK SLASH SLASH_SLASH MOD
 %right POW
 
 %%

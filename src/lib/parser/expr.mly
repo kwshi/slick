@@ -38,6 +38,7 @@ let bop ==
   | MINUS; { "-" }
   | ASTERISK; { "*" }
   | SLASH; { "/" }
+  | SLASH_SLASH; { "//" }
   | MOD; { "%" }
   | POW; { "**" }
   | PLUS_PLUS; { "++" }
