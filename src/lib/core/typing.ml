@@ -115,19 +115,11 @@ let occurs_check ev =
         go t1 || go t2
     | Type.EVar ev' ->
         Int.(ev = ev')
-    | Type.Record (r, _rt) ->
+    | Type.Record (r, _) | Type.Variant (r, _) | Type.Tuple (r, _) ->
         List.exists (snd %> go) r
-    | Type.Variant (r, _rt) ->
-        List.exists (snd %> go) r
-    | Type.Forall (_, tp) ->
+    | Type.Forall (_, tp) | Type.ForallRow (_, tp) | Type.Mu (_, tp) ->
         go tp
-    | Type.ForallRow (_, tp) ->
-        go tp
-    | Type.Mu (_, tp) ->
-        go tp
-    | Type.TVar _ ->
-        false
-    | Type.Primitive _ ->
+    | Type.TVar _ | Type.Primitive _ ->
         false
   in
   go
@@ -297,8 +289,37 @@ and infer ctx (annotated : Slick_ast.Expr.Untyped.t) : Type.t Slick_ast.Expr.t *
               (List.map (Pair.map2 (fun e -> e.Slick_ast.Expr.tp)) inferred_rcd, None)
         }
       , ctx )
-  | Slick_ast.Expr.Tuple _ ->
-    failwith "i actually don't know lol"
+  | Slick_ast.Expr.Tuple t ->
+    let ctx', unlabeled' =
+      List.fold_map
+        (fun c e ->
+           let e', c' = infer c e in
+           (c', e')
+        )
+        ctx
+        t.unlabeled
+    in
+    let ctx'', labeled' =
+      List.fold_map
+        (fun c (lbl, e) ->
+           let e', c' = infer c e in
+           (c', (lbl, e'))
+        )
+        ctx'
+        t.labeled
+    in
+    (Slick_ast.Expr.
+       { expr = Tuple {labeled = labeled'; unlabeled = unlabeled'}
+       ; tp =
+           (* TODO: do this correctly (don't use string keys for integer indices) *)
+           Type.Tuple
+             ( List.mapi (fun i e -> string_of_int i, e.Slick_ast.Expr.tp) unlabeled'
+             @ List.map (fun (l, e) -> (l, e.Slick_ast.Expr.tp)) labeled'
+             , None
+             )
+       }
+    , ctx''
+    )
   (* ->I => *)
   | Slick_ast.Expr.Function (pat, e) ->
       let arg_ev_tp, arg_ev_ce, _, ctx = Ctx.fresh_evar ctx in
@@ -779,7 +800,11 @@ and instantiateL ctx ev tp =
       instantiateReach ctx ev ev2
   (* InstLRcd *)
   | Record row ->
-      instantiate_row ctx instantiateL (fun tp -> Type.Record tp) ev row
+      instantiate_row ctx instantiateL (fun r -> Type.Record r) ev row
+  | Tuple row ->
+      instantiate_row ctx instantiateL (fun r -> Type.Tuple r) ev row
+  | Variant row ->
+      instantiate_row ctx instantiateL (fun r -> Type.Variant r) ev row
   (* InstLAllR *)
   | Forall (tv, forall_inner) ->
       let ctx' = Ctx.append_ctx [ Ctx.Tvar tv ] ctx in
@@ -791,8 +816,6 @@ and instantiateL ctx ev tp =
   (* InstMuR *)
   | Mu mu ->
       instantiate_mu ctx instantiateL ev mu
-  | Variant row ->
-      instantiate_row ctx instantiateL (fun tp -> Type.Variant tp) ev row
 
 
 and instantiateR ctx tp ev =
@@ -822,7 +845,21 @@ and instantiateR ctx tp ev =
       instantiate_row
         ctx
         (fun ctx ev tp -> instantiateR ctx tp ev)
-        (fun tp -> Type.Record tp)
+        (fun r -> Type.Record r)
+        ev
+        row
+  | Tuple row ->
+      instantiate_row
+        ctx
+        (fun ctx ev tp -> instantiateR ctx tp ev)
+        (fun r -> Type.Tuple r)
+        ev
+        row
+  | Variant row ->
+      instantiate_row
+        ctx
+        (fun ctx ev tp -> instantiateR ctx tp ev)
+        (fun r -> Type.Variant r)
         ev
         row
   (* InstRAllL *)
@@ -843,13 +880,6 @@ and instantiateR ctx tp ev =
   (* InstMuL *)
   | Mu mu ->
       instantiate_mu ctx (fun ctx ev tp -> instantiateR ctx tp ev) ev mu
-  | Variant row ->
-      instantiate_row
-        ctx
-        (fun ctx ev tp -> instantiateR ctx tp ev)
-        (fun tp -> Type.Variant tp)
-        ev
-        row
 
 
 and instantiate_fn ctx argInstFn retInstFn ev (arg_tp, ret_tp) =

@@ -70,43 +70,32 @@ let expr_atom :=
   | LPAREN; ~ = expr_paren; RPAREN; <>
 
 let expr_paren :=
-  | {Expr.make_tuple [] []}
   | es = tuple_pos_entries_trail; {Expr.make_tuple (List.rev es) []}
   | es = tuple_pos_entries_notrail;
     {match es with
      | [e] -> e
      | _ -> Expr.make_tuple (List.rev es) []
     }
-  | es = tuple_named_entries_trail; {Expr.make_tuple [] (List.rev es)}
-  | es = tuple_named_entries_notrail; {Expr.make_tuple [] (List.rev es)}
-  | (pos, kv) = tuple_both_entries_trail; {Expr.make_tuple (List.rev pos) (List.rev kv)}
-  | (pos, kv) = tuple_both_entries_notrail; {Expr.make_tuple (List.rev pos) (List.rev kv)}
-
-(*
-let tuple_entries :=
-  | {[], []} 
-*)
+  | es = tuple_named_entries_notrail; COMMA?; {Expr.make_tuple [] (List.rev es)}
+  | (pos, kv) = tuple_both_entries_notrail; COMMA?; {Expr.make_tuple (List.rev pos) (List.rev kv)}
 
 let tuple_pos_entries_trail :=
+  | {[]}
   | ~ = tuple_pos_entries_notrail; COMMA; <>
 
 let tuple_pos_entries_notrail :=
-  | e = expr; {[e]}
   | es = tuple_pos_entries_trail; e = expr; {e :: es}
-
-let tuple_named_entries_trail :=
-  | ~ = tuple_named_entries_notrail; COMMA; <>
+  (*| e = expr; {[e]}
+  | es = tuple_pos_entries_notrail; COMMA; e = expr; {e :: es}
+*)
 
 let tuple_named_entries_notrail :=
   | e = tuple_named_entry; {[e]}
-  | es = tuple_named_entries_trail; e = tuple_named_entry; {e :: es}
-
-let tuple_both_entries_trail :=
-  | ~ = tuple_both_entries_notrail; COMMA; <>
+  | es = tuple_named_entries_notrail; COMMA; e = tuple_named_entry; {e :: es}
 
 let tuple_both_entries_notrail :=
-  | pos = tuple_pos_entries_trail; e = tuple_named_entry; {pos, [e]}
-  | (pos, kv) = tuple_both_entries_trail; e = tuple_named_entry; {pos, e :: kv}
+  | pos = tuple_pos_entries_notrail; COMMA; e = tuple_named_entry; {pos, [e]}
+  | (pos, kv) = tuple_both_entries_notrail; COMMA; e = tuple_named_entry; {pos, e :: kv}
 
 
 (*

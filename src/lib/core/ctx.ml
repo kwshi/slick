@@ -128,6 +128,10 @@ let rec apply_ctx ctx =
   let rec go = function
     | Type.Record r ->
         Type.Record (row r)
+    | Type.Tuple r ->
+        Type.Tuple (row r)
+    | Type.Variant r ->
+        Type.Variant (row r)
     | Type.Function (t1, t2) ->
         Type.Function (go t1, go t2)
     | Type.EVar ev ->
@@ -148,8 +152,6 @@ let rec apply_ctx ctx =
         Type.Primitive p
     | Type.TVar tv ->
         Type.TVar tv
-    | Type.Variant r ->
-        Type.Variant (row r)
   and row (l, t) =
     let l' = List.map (Pair.map2 go) l in
     match apply_ctx_tail ctx t with

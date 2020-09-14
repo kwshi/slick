@@ -113,18 +113,20 @@ and pp_record ppf =
 
 and pp_tuple ppf t =
   let open Fmt in
+  let ppu = list ~sep:comma pp in
+  let ppl = list ~sep:comma (pair ~sep:(any "=") string pp) in
   (any "("
   ++ (match t.Tuple.unlabeled, t.labeled with
        | [], [] ->
          nop
        | [v], [] ->
          const pp v ++ any ","
-       | [], [k, v] ->
-         const string k ++ any "=" ++ const pp v
-       | _ ->
-         const (list ~sep:comma pp) t.unlabeled
-         ++ comma
-         ++ const (list ~sep:comma @@ pair ~sep:(any "=") string pp) t.labeled
+       | [], l ->
+         const ppl l
+       | u, [] ->
+         const ppu u
+       | u, l ->
+         const (pair ~sep:comma ppu ppl) (u, l)
      )
   ++ any ")"
  ) ppf ()

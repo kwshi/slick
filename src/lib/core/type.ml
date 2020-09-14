@@ -18,6 +18,7 @@ type tail =
 
 type t =
   | Record of row
+  | Tuple of row
   | Variant of row
   | Function of (t * t)
   | EVar of int
@@ -49,6 +50,8 @@ let rec pp ppf t =
   ( match t with
   | Record r ->
       const pp_row r |> Format.within "{" "}"
+  | Tuple r ->
+      const pp_row r |> Format.within "(" ",)"
   | Variant r ->
       const pp_variant r
   | Function (a, b) ->
@@ -106,6 +109,8 @@ let rmap f =
       ( match t with
       | Record r ->
           Record (row r)
+      | Tuple r ->
+          Tuple (row r)
       | Variant r ->
           Variant (row r)
       | Function (a, b) ->
@@ -130,7 +135,7 @@ let fold f =
   let rec go acc t =
     let acc' = f acc t in
     match t with
-    | Record (es, _) | Variant (es, _) ->
+    | Record (es, _) | Variant (es, _) | Tuple (es, _) ->
         List.fold_left (fun a (_, t) -> f a t) acc' es
     | Function (a, b) ->
         go (go acc' a) b
