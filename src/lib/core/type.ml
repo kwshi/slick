@@ -17,7 +17,7 @@ type tail =
   | Tail_tvar of var_name
 
 type t =
-  | Record of row
+  | Record of row (* TODO: DEPRECATE *)
   | Tuple of row
   | Variant of row
   | Function of (t * t)
@@ -28,9 +28,9 @@ type t =
   | Mu of (var_name * t)
   | Primitive of primitive
 
-and row = (label * t) list * tail option
+and row = (label * t) list * tail option (* TODO: parametrize over label type? (int vs string) *)
 
-let unit = Record ([], None)
+let unit = Record ([], None) (* TODO: replace with tuple *)
 
 let bool = Variant ([ ("True", unit); ("False", unit) ], None)
 
