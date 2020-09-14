@@ -297,6 +297,8 @@ and infer ctx (annotated : Slick_ast.Expr.Untyped.t) : Type.t Slick_ast.Expr.t *
               (List.map (Pair.map2 (fun e -> e.Slick_ast.Expr.tp)) inferred_rcd, None)
         }
       , ctx )
+  | Slick_ast.Expr.Tuple _ ->
+    failwith "i actually don't know lol"
   (* ->I => *)
   | Slick_ast.Expr.Function (pat, e) ->
       let arg_ev_tp, arg_ev_ce, _, ctx = Ctx.fresh_evar ctx in

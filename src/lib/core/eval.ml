@@ -20,6 +20,11 @@ let rec evaluate (sc : Val.t Scope.t) expr =
       evaluate sc f |> apply_to e
   | Record r ->
       Record (r |> List.map @@ Pair.map2 @@ evaluate sc)
+  | Tuple t ->
+    Tuple
+      { unlabeled = List.map (evaluate sc) t.unlabeled
+      ; labeled = List.map (Pair.map2 @@ evaluate sc) t.labeled
+      }
   | Projection (r, lbl) ->
     ( match evaluate sc r with
     | Record r' ->
@@ -56,3 +61,4 @@ let rec evaluate (sc : Val.t Scope.t) expr =
       Scope.find o sc |> apply_to a |> apply_to b
   | Uop (o, a) ->
       Scope.find o sc |> apply_to a
+

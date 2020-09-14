@@ -65,8 +65,24 @@ module Record = struct
   let get_exn k = Option.get_exn % get k
 end
 
+module Tuple = struct
+  type 't t =
+    { unlabeled : 't list
+    ; labeled : (string * 't) list
+    }
+
+  let index n t = List.nth_opt t.unlabeled n
+  let get k t = List.find_opt (fst %> String.equal k) t.labeled |> Option.map snd
+
+  module Exn = struct
+    let index n = Option.get_exn % index n
+    let get k = Option.get_exn % get k
+  end
+end
+
 type t =
-  | Record of t Record.t
+  | Record of t Record.t (* deprecate *)
+  | Tuple of t Tuple.t
   | Function of (t -> t)
   | Variant of string * t
   | Primitive of Primitive.t
@@ -76,6 +92,8 @@ let rec pp ppf value =
   ( match value with
   | Record r ->
       const pp_record r
+  | Tuple t ->
+    const pp_tuple t
   | Function _ ->
       any "<function>"
   | Variant (v, e) ->
@@ -92,6 +110,25 @@ and pp_record ppf =
   ++ list ~sep:(any ",@ ") (pair ~sep:(any "@ =@ ") string pp)
   ++ any "}" )
     ppf
+
+and pp_tuple ppf t =
+  let open Fmt in
+  (any "("
+  ++ (match t.Tuple.unlabeled, t.labeled with
+       | [], [] ->
+         nop
+       | [v], [] ->
+         const pp v ++ any ","
+       | [], [k, v] ->
+         const string k ++ any "=" ++ const pp v
+       | _ ->
+         const (list ~sep:comma pp) t.unlabeled
+         ++ comma
+         ++ const (list ~sep:comma @@ pair ~sep:(any "=") string pp) t.labeled
+     )
+  ++ any ")"
+ ) ppf ()
+  
 
 
 module Make = struct

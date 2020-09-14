@@ -188,6 +188,11 @@ let apply_ctx_expr ctx =
           Expr.Function (v, go e)
       | Expr.Record r ->
           Expr.Record (List.map (Pair.map2 go) r)
+      | Expr.Tuple t ->
+          Expr.Tuple 
+            { Expr.unlabeled = List.map go t.unlabeled
+            ; Expr.labeled = List.map (Pair.map2 go) t.labeled
+            }
       | Expr.Variant (v, e) ->
           Expr.Variant (v, go e)
       | Expr.Var v ->

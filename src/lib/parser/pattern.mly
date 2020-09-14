@@ -6,7 +6,7 @@
 
 %public let pattern_atom :=
   | v = UPPER_IDENT; { Pat.Variant (v, Pat.Record []) }
-  | LBRACE; ~ = separated_list(COMMA, record_pattern_entry); RBRACE; <Pat.Record>
+  | LBRACE; ~ = list_sep(COMMA, record_pattern_entry); RBRACE; <Pat.Record>
   | ~ = literal_pattern; <Pat.Literal>
   | ~ = LOWER_IDENT; <Pat.Var>
   | LPAREN; ~ = pattern; RPAREN; <>

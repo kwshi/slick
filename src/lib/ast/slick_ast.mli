@@ -28,8 +28,14 @@ module Expr : sig
     | Var of Var_name.t
     | Literal of literal
     | Case of ('t * (Pattern.t * 't) list)
+    | Tuple of 't tuple
 
   and 'annotated_expr record = (Label.t * 'annotated_expr) list
+
+  and 't tuple = 
+    { unlabeled : 't list
+    ; labeled : (Label.t * 't) list
+    }
 
   and 'tp t =
     { tp : 'tp
@@ -50,6 +56,8 @@ module Expr : sig
     val make_application : t -> t -> t
 
     val make_record : t record -> t
+
+    val make_tuple : t list -> (Label.t * t) list -> t
 
     val make_projection : t -> Label.t -> t
 

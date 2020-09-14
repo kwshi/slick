@@ -36,15 +36,22 @@ module Expr = struct
     | Assign of Var_name.t * 't * 't
     | Function of (Pattern.t * 't)
     | Application of ('t * 't)
-    | Record of 't record
+    | Record of 't record (* will be deprecated, only keeping so I won't have to
+                             rename a million things rn *)
     | Projection of ('t * Label.t)
     | Extension of (Label.t * 't * 't)
     | Variant of (string * 't)
     | Var of Var_name.t
     | Literal of literal
     | Case of ('t * (Pattern.t * 't) list)
+    | Tuple of 't tuple
 
-  and 'annotated_expr record = (Label.t * 'annotated_expr) list
+  and 't record = (Label.t * 't) list
+
+  and 't tuple = 
+    { unlabeled : 't list
+    ; labeled : (Label.t * 't) list
+    }
 
   and 'tp t =
     { tp : 'tp
@@ -65,6 +72,8 @@ module Expr = struct
     let make_application e1 e2 = make @@ Application (e1, e2)
 
     let make_record r = make @@ Record r
+
+    let make_tuple unlabeled labeled = make @@ Tuple {unlabeled; labeled}
 
     let make_projection r l = make @@ Projection (r, l)
 
