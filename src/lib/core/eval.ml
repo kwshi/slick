@@ -26,7 +26,12 @@ let rec evaluate (sc : Val.t Scope.t) expr =
   | Projection (r, lbl) ->
     ( match evaluate sc r with
     | Tuple r' ->
-        snd @@ List.find (fun (lbl', _) -> String.(equal lbl lbl')) r'.labeled
+      (match int_of_string_opt lbl with
+       | Some n ->
+         List.nth r'.unlabeled n
+       | None ->
+         snd @@ List.find (fun (lbl', _) -> String.(equal lbl lbl')) r'.labeled
+      )
     | _ ->
         assert false )
   | Extension (lbl, e, r) ->
