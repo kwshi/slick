@@ -65,6 +65,7 @@ let expr_atom :=
   (*| LPAREN; (pos, kv) = tuple_entries; RPAREN; {Expr.make_tuple pos kv}*)
   | ~ = LOWER_IDENT; <Expr.make_var>
   | r = expr_atom; DOT; l = LOWER_IDENT; { Expr.make_projection r l }
+  | r = expr_atom; DOT; l = INT; { Expr.make_projection r (Z.to_string l) }
   | ~ = expr_lit; <Expr.make_literal>
   | LBRACE; e = expr_body; PIPE; l = list_sep_min1(COMMA, tuple_named_entry); RBRACE; { Expr.make_extensions e l }
   | LPAREN; ~ = expr_paren; RPAREN; <>
@@ -76,7 +77,6 @@ let expr_paren :=
      | [e] -> e
      | _ -> Expr.make_tuple (List.rev es) []
     }
-  | es = tuple_named_entries_notrail; COMMA?; {Expr.make_tuple [] (List.rev es)}
   | (pos, kv) = tuple_both_entries_notrail; COMMA?; {Expr.make_tuple (List.rev pos) (List.rev kv)}
 
 let tuple_pos_entries_trail :=
@@ -85,16 +85,9 @@ let tuple_pos_entries_trail :=
 
 let tuple_pos_entries_notrail :=
   | es = tuple_pos_entries_trail; e = expr; {e :: es}
-  (*| e = expr; {[e]}
-  | es = tuple_pos_entries_notrail; COMMA; e = expr; {e :: es}
-*)
-
-let tuple_named_entries_notrail :=
-  | e = tuple_named_entry; {[e]}
-  | es = tuple_named_entries_notrail; COMMA; e = tuple_named_entry; {e :: es}
 
 let tuple_both_entries_notrail :=
-  | pos = tuple_pos_entries_notrail; COMMA; e = tuple_named_entry; {pos, [e]}
+  | pos = tuple_pos_entries_trail; e = tuple_named_entry; {pos, [e]}
   | (pos, kv) = tuple_both_entries_notrail; COMMA; e = tuple_named_entry; {pos, e :: kv}
 
 
