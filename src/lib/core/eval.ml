@@ -18,8 +18,6 @@ let rec evaluate (sc : Val.t Scope.t) expr =
               failwith "evaluate function: Pattern match failed.")
   | Application (f, e) ->
       evaluate sc f |> apply_to e
-  | Record r ->
-      Record (r |> List.map @@ Pair.map2 @@ evaluate sc)
   | Tuple t ->
     Tuple
       { unlabeled = List.map (evaluate sc) t.unlabeled
@@ -27,14 +25,14 @@ let rec evaluate (sc : Val.t Scope.t) expr =
       }
   | Projection (r, lbl) ->
     ( match evaluate sc r with
-    | Record r' ->
-        snd @@ List.find (fun (lbl', _) -> String.(equal lbl lbl')) r'
+    | Tuple r' ->
+        snd @@ List.find (fun (lbl', _) -> String.(equal lbl lbl')) r'.labeled
     | _ ->
         assert false )
   | Extension (lbl, e, r) ->
     ( match evaluate sc r with
-    | Record r' ->
-        Record ((lbl, evaluate sc e) :: r')
+    | Tuple r' ->
+        Tuple {labeled = ((lbl, evaluate sc e) :: r'.labeled); unlabeled = r'.unlabeled}
     | _ ->
         assert false )
   | Variant (v, e) ->

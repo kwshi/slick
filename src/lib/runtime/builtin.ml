@@ -59,7 +59,7 @@ let vals =
         ( Value.Get.Exn.primitive
         %> Value.Primitive.Get.Exn.str
         %> print_endline
-        %> const (Value.Record []) ))
+        %> const Value.Make.unit ))
     , let open Type in
       Function (Primitive String, unit) )
   ; ( "++"

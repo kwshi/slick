@@ -4,7 +4,7 @@ module Pattern : sig
     | Int of Z.t
 
   type t =
-    | Record of (Label.t * t) list
+    | Tuple of (Label.t * t) list
     | Variant of (Label.t * t)
     | Var of Var_name.t
     | Literal of literal
@@ -21,7 +21,6 @@ module Expr : sig
     | Assign of Var_name.t * 't * 't
     | Function of (Pattern.t * 't)
     | Application of ('t * 't)
-    | Record of 't record
     | Projection of ('t * Label.t)
     | Extension of (Label.t * 't * 't)
     | Variant of (string * 't)
@@ -29,8 +28,6 @@ module Expr : sig
     | Literal of literal
     | Case of ('t * (Pattern.t * 't) list)
     | Tuple of 't tuple
-
-  and 'annotated_expr record = (Label.t * 'annotated_expr) list
 
   and 't tuple = 
     { unlabeled : 't list
@@ -54,8 +51,6 @@ module Expr : sig
     val make_function_curried : Pattern.t list -> t -> t
 
     val make_application : t -> t -> t
-
-    val make_record : t record -> t
 
     val make_tuple : t list -> (Label.t * t) list -> t
 

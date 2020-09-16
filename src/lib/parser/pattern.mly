@@ -5,8 +5,8 @@
   | ~ = pattern_atom; <>
 
 %public let pattern_atom :=
-  | v = UPPER_IDENT; { Pat.Variant (v, Pat.Record []) }
-  | LBRACE; ~ = list_sep(COMMA, record_pattern_entry); RBRACE; <Pat.Record>
+  | v = UPPER_IDENT; { Pat.Variant (v, Pat.Tuple []) }
+  | LBRACE; ~ = list_sep(COMMA, record_pattern_entry); RBRACE; <Pat.Tuple>
   | ~ = literal_pattern; <Pat.Literal>
   | ~ = LOWER_IDENT; <Pat.Var>
   | LPAREN; ~ = pattern; RPAREN; <>

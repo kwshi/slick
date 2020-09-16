@@ -57,14 +57,6 @@ module Primitive = struct
   end
 end
 
-module Record = struct
-  type 't t = (string * 't) list
-
-  let get k = List.find_opt (fst %> String.equal k) %> Option.map snd
-
-  let get_exn k = Option.get_exn % get k
-end
-
 module Tuple = struct
   type 't t =
     { unlabeled : 't list
@@ -81,7 +73,6 @@ module Tuple = struct
 end
 
 type t =
-  | Record of t Record.t (* deprecate *)
   | Tuple of t Tuple.t
   | Function of (t -> t)
   | Variant of string * t
@@ -90,26 +81,17 @@ type t =
 let rec pp ppf value =
   let open Fmt in
   ( match value with
-  | Record r ->
-      const pp_record r
   | Tuple t ->
     const pp_tuple t
   | Function _ ->
       any "<function>"
   | Variant (v, e) ->
-      const string v ++ (match e with Record [] -> nop | _ -> sp ++ const pp e)
+      const string v ++ (match e with Tuple {labeled = []; unlabeled = [];} -> nop | _ -> sp ++ const pp e)
   | Primitive p ->
       const Primitive.pp p )
     ppf
     ()
 
-
-and pp_record ppf =
-  let open Fmt in
-  ( any "{"
-  ++ list ~sep:(any ",@ ") (pair ~sep:(any "@ =@ ") string pp)
-  ++ any "}" )
-    ppf
 
 and pp_tuple ppf t =
   let open Fmt in
@@ -134,13 +116,13 @@ and pp_tuple ppf t =
 
 
 module Make = struct
-  let unit = Record []
+  let unit = Tuple {labeled = []; unlabeled = []}
 
   let bool b = Variant ((if b then "True" else "False"), unit)
 end
 
 module Get = struct
-  let record = function Record r -> Some r | _ -> None
+  let tuple = function Tuple t -> Some t | _ -> None
 
   let function_ = function Function f -> Some f | _ -> None
 
@@ -149,16 +131,16 @@ module Get = struct
   let primitive = function Primitive p -> Some p | _ -> None
 
   let bool = function
-    | Variant ("True", Record []) ->
+    | Variant ("True", Tuple {labeled = []; unlabeled = []}) ->
         Some true
-    | Variant ("False", Record []) ->
+    | Variant ("False", Tuple {labeled = []; unlabeled = []}) ->
         Some false
     | _ ->
         None
 
 
   module Exn = struct
-    let record = Option.get_exn % record
+    let tuple = Option.get_exn % tuple
 
     let function_ = Option.get_exn % function_
 
@@ -175,10 +157,10 @@ let rec match_pat =
   function
   | Pat.Var var, v ->
       Some [ (var, v) ]
-  | Pat.Record fields, Record r ->
+  | Pat.Tuple fields, Tuple r ->
       List.fold_right
         (fun (lbl, pat') accum_opt ->
-          match (accum_opt, Record.get lbl r) with
+          match (accum_opt, Tuple.get lbl r) with
           | Some accum, Some v ->
             ( match match_pat (pat', v) with
             | Some bindings ->

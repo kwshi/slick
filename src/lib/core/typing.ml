@@ -89,7 +89,7 @@ let solve_row_evar ev r =
   then ctx'
   else (
     print_debug "solve_row_evar: context dump" ;
-    print_tp @@ Record r ;
+    print_tp @@ Tuple r ;
     print_ctx { Ctx.empty with context = ctx } ;
     failwith @@ "solve_row_evar not found (" ^ Int.to_string ev ^ ")" )
 
@@ -115,7 +115,7 @@ let occurs_check ev =
         go t1 || go t2
     | Type.EVar ev' ->
         Int.(ev = ev')
-    | Type.Record (r, _) | Type.Variant (r, _) | Type.Tuple (r, _) ->
+    | Type.Variant (r, _) | Type.Tuple (r, _) ->
         List.exists (snd %> go) r
     | Type.Forall (_, tp) | Type.ForallRow (_, tp) | Type.Mu (_, tp) ->
         go tp
@@ -156,8 +156,8 @@ let substitute_row tv ~replace_with =
   @@ fun ~go ->
   let row = row go in
   function
-  | Type.Record r ->
-      Some (Record (row r))
+  | Type.Tuple r ->
+      Some (Tuple (row r))
   | Type.Variant r ->
       Some (Variant (row r))
   (* Do not substitute bound variables *)
@@ -274,21 +274,6 @@ and infer ctx (annotated : Slick_ast.Expr.Untyped.t) : Type.t Slick_ast.Expr.t *
       let tp = Ctx.lookup_var v ctx in
       ({ Slick_ast.Expr.expr = Var v; tp }, ctx)
   (* RcdI => *)
-  | Slick_ast.Expr.Record r ->
-      let ctx, inferred_rcd =
-        List.fold_map
-          (fun ctx (label, e) ->
-            let inferred_e, ctx = infer ctx e in
-            (ctx, (label, inferred_e)))
-          ctx
-          r
-      in
-      ( { expr = Record inferred_rcd
-        ; tp =
-            Record
-              (List.map (Pair.map2 (fun e -> e.Slick_ast.Expr.tp)) inferred_rcd, None)
-        }
-      , ctx )
   | Slick_ast.Expr.Tuple t ->
     let ctx', unlabeled' =
       List.fold_map
@@ -520,7 +505,7 @@ and infer_pat ctx pattern =
       let row_tail, row_tail_ce, _, ctx = Ctx.fresh_row_evar ctx in
       let ctx = Ctx.append_ctx [ row_tail_ce ] ctx in
       (Type.Variant ([ (v, p_tp) ], Some row_tail), ctx)
-  | Record r ->
+  | Tuple r -> (* TODO: rename tuple *)
       let ctx, inferred_r =
         List.fold_map
           (fun ctx (label, e) ->
@@ -529,7 +514,7 @@ and infer_pat ctx pattern =
           ctx
           r
       in
-      (Record (inferred_r, None), ctx)
+      (Tuple (inferred_r, None), ctx)
 
 
 and check_pat ctx pattern tp =
@@ -598,7 +583,7 @@ and infer_proj ctx tp lbl =
 and lookup_row ctx tp lbl =
   match tp with
   (* LookupRcd *)
-  | Record (r, rt) ->
+  | Tuple (r, rt) ->
     ( match
         List.find_map
           (function
@@ -628,7 +613,7 @@ and lookup_row ctx tp lbl =
       let fresh_ev_tp, fresh_ev_ce, _, ctx = Ctx.fresh_evar ctx in
       let ctx =
         Ctx.insert_before_in_ctx (Ctx.Evar ev) [ fresh_ev_ce; fresh_rt_ce ] ctx
-        |> solve_evar ev (Record ([ (lbl, fresh_ev_tp) ], Some fresh_rt))
+        |> solve_evar ev (Tuple ([ (lbl, fresh_ev_tp) ], Some fresh_rt))
       in
       (fresh_ev_tp, ctx)
   | _ ->
@@ -650,17 +635,17 @@ and infer_ext ctx rcd_head tp =
         (fun ctx' forall_inner -> infer_ext ctx' rcd_head forall_inner)
         far
   (* TODO Need to replace the label if it already exists *)
-  | Record (r, rt) ->
-      (Type.Record (rcd_head :: r, rt), ctx)
+  | Tuple (r, rt) ->
+      (Type.Tuple (rcd_head :: r, rt), ctx)
   | EVar ev ->
       let fresh_rt, fresh_rt_ce, _, ctx = Ctx.fresh_row_evar ctx in
-      let rcd_tp = Type.Record ([], Some fresh_rt) in
+      let rcd_tp = Type.Tuple ([], Some fresh_rt) in
       let ctx =
         Ctx.insert_before_in_ctx (Ctx.Evar ev) [ fresh_rt_ce ] ctx
         |> solve_evar ev rcd_tp
       in
       (* This is like rcd_tp, but extended with the rcd_head given *)
-      (Record ([ rcd_head ], Some fresh_rt), ctx)
+      (Tuple ([ rcd_head ], Some fresh_rt), ctx)
   | _ ->
       failwith "infer_ext: Got unexpected type."
 
@@ -722,7 +707,7 @@ and subsumes ctx tp1 tp2 =
         (Ctx.apply_ctx ctx' return_tp1)
         (Ctx.apply_ctx ctx' return_tp2)
   (* Record *)
-  | Record row1, Record row2 ->
+  | Tuple row1, Tuple row2 ->
       subsumes_row ctx row1 row2
   (* Variant *)
   | Variant row1, Variant row2 ->
@@ -799,8 +784,6 @@ and instantiateL ctx ev tp =
   | EVar ev2 ->
       instantiateReach ctx ev ev2
   (* InstLRcd *)
-  | Record row ->
-      instantiate_row ctx instantiateL (fun r -> Type.Record r) ev row
   | Tuple row ->
       instantiate_row ctx instantiateL (fun r -> Type.Tuple r) ev row
   | Variant row ->
@@ -841,13 +824,6 @@ and instantiateR ctx tp ev =
   | Primitive p ->
       solve_evar ev (Primitive p) ctx
   (* InstRRcd *)
-  | Record row ->
-      instantiate_row
-        ctx
-        (fun ctx ev tp -> instantiateR ctx tp ev)
-        (fun r -> Type.Record r)
-        ev
-        row
   | Tuple row ->
       instantiate_row
         ctx

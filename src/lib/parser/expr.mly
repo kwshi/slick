@@ -146,7 +146,7 @@ let expr_lit :=
   | ~ = INT; <Ast.Expr.Int>
 
 let expr_variant_atom ==
-  | s = UPPER_IDENT; { Expr.make_variant s (Expr.make_record []) }
+  | s = UPPER_IDENT; { Expr.make_variant s (Expr.make_tuple [] []) }
 
 let case_entry ==
   | PIPE; ~ = pattern; ARROW; ~ = expr_body; <>

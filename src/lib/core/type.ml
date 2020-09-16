@@ -17,7 +17,6 @@ type tail =
   | Tail_tvar of var_name
 
 type t =
-  | Record of row (* TODO: DEPRECATE *)
   | Tuple of row
   | Variant of row
   | Function of (t * t)
@@ -30,7 +29,7 @@ type t =
 
 and row = (label * t) list * tail option (* TODO: parametrize over label type? (int vs string) *)
 
-let unit = Record ([], None) (* TODO: replace with tuple *)
+let unit = Tuple ([], None) (* TODO: replace with tuple *)
 
 let bool = Variant ([ ("True", unit); ("False", unit) ], None)
 
@@ -48,10 +47,8 @@ let pp_tail ppf tl =
 let rec pp ppf t =
   let open Fmt in
   ( match t with
-  | Record r ->
-      const pp_row r |> Format.within "{" "}"
   | Tuple r ->
-      const pp_row r |> Format.within "(" ",)"
+      const pp_row r |> Format.within "(" ")"
   | Variant r ->
       const pp_variant r
   | Function (a, b) ->
@@ -71,7 +68,6 @@ let rec pp ppf t =
     (match p with Int -> any "Int" | String -> any "String") )
     ppf
     ()
-
 
 and pp_row ppf (es, tl) =
   let open Fmt in
@@ -94,7 +90,7 @@ and pp_variant ppf (es, tl) =
 and pp_variant_entry ppf (l, t) =
   let open Fmt in
   ( const string l
-  ++ match t with Record ([], None) -> nop | _ -> any "@ :@ " ++ const pp t )
+  ++ match t with Tuple ([], None) -> nop | _ -> any "@ :@ " ++ const pp t )
     ppf
     ()
 
@@ -107,8 +103,6 @@ let rmap f =
         t'
     | None ->
       ( match t with
-      | Record r ->
-          Record (row r)
       | Tuple r ->
           Tuple (row r)
       | Variant r ->
@@ -135,7 +129,7 @@ let fold f =
   let rec go acc t =
     let acc' = f acc t in
     match t with
-    | Record (es, _) | Variant (es, _) | Tuple (es, _) ->
+    | Variant (es, _) | Tuple (es, _) ->
         List.fold_left (fun a (_, t) -> f a t) acc' es
     | Function (a, b) ->
         go (go acc' a) b
@@ -152,8 +146,8 @@ let map_tail f =
   rmap (fun ~go ->
       let row = row go in
       function
-      | Record r ->
-          Some (Record (row r))
+      | Tuple r ->
+          Some (Tuple (row r))
       | Variant r ->
           Some (Variant (row r))
       | _ ->

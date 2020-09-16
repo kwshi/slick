@@ -126,8 +126,6 @@ let get_ctx_after ce =
 *)
 let rec apply_ctx ctx =
   let rec go = function
-    | Type.Record r ->
-        Type.Record (row r)
     | Type.Tuple r ->
         Type.Tuple (row r)
     | Type.Variant r ->
@@ -188,8 +186,6 @@ let apply_ctx_expr ctx =
           Expr.Application (go e1, go e2)
       | Expr.Function (v, e) ->
           Expr.Function (v, go e)
-      | Expr.Record r ->
-          Expr.Record (List.map (Pair.map2 go) r)
       | Expr.Tuple t ->
           Expr.Tuple 
             { Expr.unlabeled = List.map go t.unlabeled
