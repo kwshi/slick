@@ -8,4 +8,5 @@
 (menhir
  (modules parser header lib expr pattern tokens)
  (merge_into parser)
+ (infer false)
  (flags --explain --dump --no-stdlib))
