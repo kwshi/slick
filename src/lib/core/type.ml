@@ -121,7 +121,7 @@ let rmap f =
           Mu (v, go t)
       | Primitive p ->
           Primitive p )
-  and row (es, tl) = (List.map (Pair.map2 go) es, tl) in
+  and row (es, tl) = (List.map (Pair.map_snd go) es, tl) in
   go
 
 
@@ -142,7 +142,7 @@ let fold f =
 
 
 let map_tail f =
-  let row go (r, t) = (List.map (Pair.map2 go) r, Option.map f t) in
+  let row go (r, t) = (List.map (Pair.map_snd go) r, Option.map f t) in
   rmap (fun ~go ->
       let row = row go in
       function

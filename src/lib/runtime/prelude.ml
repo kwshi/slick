@@ -19,5 +19,5 @@ let prelude =
     , {|(\x -> case x | Some _ -> x | None -> x) None|}
        *)
   ]
-  |> List.map (Pair.map2 parse_string)
+  |> List.map (Pair.map_snd parse_string)
   |> Slick_core.Module.eval (Builtin.scope, Builtin.ctx)

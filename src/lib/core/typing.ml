@@ -15,7 +15,6 @@ let row_map_zip =
   RowMap.merge f
 
 
-let map_row f = Pair.map1 (List.map (Pair.map2 f))
 
 let iter_row f = fst %> List.iter (snd %> f)
 
@@ -145,7 +144,7 @@ let substitute tv ~replace_with =
 
 let substitute_row tv ~replace_with =
   let row go (r, t) =
-    ( List.map (Pair.map2 go) r
+    ( List.map (Pair.map_snd go) r
     , match t with
       | Some (Type.Tail_tvar tv') when String.equal tv tv' ->
           Some replace_with
@@ -742,7 +741,7 @@ and subsumes_row ctx (r1, tail1) (r2, tail2) =
   in
   let missingFrom1 = RowMap.to_list @@ row_map_difference map2 map1 in
   let missingFrom2 = RowMap.to_list @@ row_map_difference map1 map2 in
-  let apply_row = List.map (Pair.map2 @@ Ctx.apply_ctx ctx') in
+  let apply_row = List.map (Pair.map_snd @@ Ctx.apply_ctx ctx') in
   match (Ctx.apply_ctx_tail ctx' tail1, Ctx.apply_ctx_tail ctx' tail2) with
   (* If we recursively solve a row tail, we need to reevaluate the subsumption relationship on the solved row*)
   | `Solved (r1', t1'), `Solved (r2', t2') ->

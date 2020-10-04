@@ -21,7 +21,7 @@ let rec evaluate (sc : Val.t Scope.t) expr =
   | Tuple t ->
     Tuple
       { unlabeled = List.map (evaluate sc) t.unlabeled
-      ; labeled = List.map (Pair.map2 @@ evaluate sc) t.labeled
+      ; labeled = List.map (Pair.map_snd @@ evaluate sc) t.labeled
       }
   | Projection (r, lbl) ->
     ( match evaluate sc r with

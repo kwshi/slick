@@ -151,7 +151,7 @@ let rec apply_ctx ctx =
     | Type.TVar tv ->
         Type.TVar tv
   and row (l, t) =
-    let l' = List.map (Pair.map2 go) l in
+    let l' = List.map (Pair.map_snd go) l in
     match apply_ctx_tail ctx t with
     | `Solved r ->
         let l'', t' = row r in
@@ -189,7 +189,7 @@ let apply_ctx_expr ctx =
       | Expr.Tuple t ->
           Expr.Tuple 
             { Expr.unlabeled = List.map go t.unlabeled
-            ; Expr.labeled = List.map (Pair.map2 go) t.labeled
+            ; Expr.labeled = List.map (Pair.map_snd go) t.labeled
             }
       | Expr.Variant (v, e) ->
           Expr.Variant (v, go e)
