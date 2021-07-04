@@ -15,29 +15,32 @@ let rec evaluate (sc : Val.t Scope.t) expr =
           | Some pat_bindings ->
               evaluate (Scope.add_list sc pat_bindings) e
           | None ->
-              failwith "evaluate function: Pattern match failed.")
+              failwith "evaluate function: Pattern match failed." )
   | Application (f, e) ->
       evaluate sc f |> apply_to e
   | Tuple t ->
-    Tuple
-      { unlabeled = List.map (evaluate sc) t.unlabeled
-      ; labeled = List.map (Pair.map_snd @@ evaluate sc) t.labeled
-      }
+      Tuple
+        { unlabeled = List.map (evaluate sc) t.unlabeled
+        ; labeled = List.map (Pair.map_snd @@ evaluate sc) t.labeled
+        }
   | Projection (r, lbl) ->
     ( match evaluate sc r with
     | Tuple r' ->
-      (match int_of_string_opt lbl with
-       | Some n ->
-         List.nth r'.unlabeled n
-       | None ->
-         snd @@ List.find (fun (lbl', _) -> String.(equal lbl lbl')) r'.labeled
+      ( match int_of_string_opt lbl with
+      | Some n ->
+          List.nth r'.unlabeled n
+      | None ->
+          snd @@ List.find (fun (lbl', _) -> String.(equal lbl lbl')) r'.labeled
       )
     | _ ->
         assert false )
   | Extension (lbl, e, r) ->
     ( match evaluate sc r with
     | Tuple r' ->
-        Tuple {labeled = ((lbl, evaluate sc e) :: r'.labeled); unlabeled = r'.unlabeled}
+        Tuple
+          { labeled = (lbl, evaluate sc e) :: r'.labeled
+          ; unlabeled = r'.unlabeled
+          }
     | _ ->
         assert false )
   | Variant (v, e) ->
@@ -55,13 +58,12 @@ let rec evaluate (sc : Val.t Scope.t) expr =
             | Some pat_bindings ->
                 Some (Scope.add_list sc pat_bindings, case_inner)
             | None ->
-                None)
+                None )
           cs
-        |> Option.get_exn
+        |> Option.get_exn_or "case"
       in
       evaluate sc' case_inner
   | Bop (o, a, b) ->
       Scope.find o sc |> apply_to a |> apply_to b
   | Uop (o, a) ->
       Scope.find o sc |> apply_to a
-
