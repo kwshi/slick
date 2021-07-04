@@ -27,7 +27,8 @@ let list_sep_rev(sep, i) ==
 
 %public let option(a) ==
   | {None}
-  | a; <Some>
+  | ~ = a; <Some>
+  (* TODO used to be able to just do `a; <Some> (ref. page 13 on menhir manual), bug report? *)
 
 %public let list_sep(sep, i) ==
   | ~ = list_sep_rev(sep, i); <List.rev>
